@@ -1,0 +1,66 @@
+====================================================================
+BASE FINAL -- perfis de municípios paulistas
+====================================================================
+Municípios: 645   Colunas: 49
+Janela SSP: [2026]  (0.583 ano(s)-equivalente(s) de exposição)
+População de referência: 2026
+PIB de referência: 2023
+
+  *** ATENÇÃO: a janela contém ano(s) INCOMPLETO(S). As taxas já
+      estão anualizadas pela exposição, mas herdam viés sazonal.
+      Trate esta base como PROVISÓRIA até baixar anos completos.
+
+--- Municípios aptos à modelagem ---
+Com todos os blocos (crime + socioeconômico + gestão): 644
+Sem IEGM (fora da modelagem): 1 -> São Paulo
+Com população < 5,000: 148 (22.9%) -- mantidos na base, usar em análise de sensibilidade
+
+--- Valores ausentes ---
+  prop_noturno                          2 (0.3%)
+  taxa_recuperacao_veiculo            186 (28.8%)
+  prop_veiculo_motocicleta            186 (28.8%)
+  iegm_exercicio_ref                    1 (0.2%)
+  iegm_ano_apuracao                     1 (0.2%)
+  iegm_conceito                         1 (0.2%)
+  iegm_ord                              1 (0.2%)
+  i_planejamento_conceito               1 (0.2%)
+  i_planejamento_ord                    1 (0.2%)
+  i_fiscal_conceito                     1 (0.2%)
+  i_fiscal_ord                          1 (0.2%)
+  i_educ_conceito                       1 (0.2%)
+  i_educ_ord                            1 (0.2%)
+  i_saude_conceito                      1 (0.2%)
+  i_saude_ord                           1 (0.2%)
+  i_amb_conceito                        1 (0.2%)
+  i_amb_ord                             1 (0.2%)
+  i_cidade_conceito                     1 (0.2%)
+  i_cidade_ord                          1 (0.2%)
+  i_gov_ti_conceito                     1 (0.2%)
+  i_gov_ti_ord                          1 (0.2%)
+
+--- Bloco B: taxas por 100 mil hab./ano ---
+  variável                           média   mediana        máx   zeros
+  taxa_cvli                            6.1       0.0       86.1   354 (55%)
+  taxa_tentativa_homicidio            12.2       6.7      189.7   250 (39%)
+  taxa_lesao_dolosa                  415.5     393.3     1153.6     1 (0%)
+  taxa_roubo_outros                   42.0      20.4      731.0   221 (34%)
+  taxa_roubo_veiculo                   9.7       0.0      160.7   396 (61%)
+  taxa_roubo_carga                     1.6       0.0       84.0   535 (83%)
+  taxa_furto_outros                  573.2     557.3     2325.2     3 (0%)
+  taxa_furto_veiculo                  46.8      34.9      365.9   154 (24%)
+  taxa_estupro_total                  47.4      37.6      480.2    94 (15%)
+  taxa_trafico                       123.1     100.8     1066.4    85 (13%)
+
+  Zeros elevados = zero-inflação. Ela cai ao ampliar a janela:
+  estimativa Poisson para CVLI -- 1 ano: 46% | 2 anos: 31% | 3 anos: 23% | 5 anos: 14%.
+
+--- Espaço de features (etapa única) ---
+  criminalidade       9 features -> peso sugerido 1/sqrt(9) = 0.333
+  gestao              8 features -> peso sugerido 1/sqrt(8) = 0.354
+  socioeconomico      2 features -> peso sugerido 1/sqrt(2) = 0.707
+  Sem peso por bloco, cada bloco influencia a distância na
+  proporção do nº de colunas que a fonte por acaso tem.
+
+  Transformações a aplicar NO SCRIPT DE MODELAGEM (não aqui):
+    log1p nas taxas e no PIB per capita (fortemente assimétricos),
+    depois RobustScaler, ajustado só no subconjunto clusterizado.
