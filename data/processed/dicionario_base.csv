@@ -13,33 +13,33 @@ taxa_furto_outros,criminalidade,float,feature,Furto (exceto veículo e carga) --
 taxa_furto_veiculo,criminalidade,float,feature,Furto de veículo -- por 100 mil hab./ano
 taxa_estupro_total,criminalidade,float,feature,Estupro + estupro de vulnerável -- por 100 mil hab./ano
 taxa_trafico,criminalidade,float,feature,Tráfico de entorpecentes (mede também intensidade de policiamento) -- por 100 mil hab./ano
-prop_via_publica,textura,float,validacao_externa,Proporção de ocorrências em via pública (sugerida como validação externa)
+prop_via_publica,textura,float,validacao_externa,Proporção de ocorrências com DESCR_SUBTIPOLOCAL='Via Pública' (sugerida como validação externa). DESCR_SUBTIPOLOCAL e não DESCR_TIPOLOCAL: este último só existe no export de 2025
 prop_noturno,textura,float,feature_tier2,Proporção de ocorrências noturnas entre as de período conhecido
 cobertura_periodo,textura,float,qualidade,Fração de ocorrências com DESC_PERIODO preenchido (~42% em 2026)
 taxa_recuperacao_veiculo,textura,float,feature_tier2,Veículos localizados / veículos subtraídos -- efetividade institucional
 prop_veiculo_motocicleta,textura,float,feature_tier2,Participação de motos entre os veículos subtraídos
 prop_celular_em_furto_roubo,textura,float,feature_tier2,Ocorrências com celular subtraído / total de ocorrências
 pib_percapita,socioeconomico,float,feature,PIB per capita em R$ (recalculado com a população de referência)
-taxa_urbanizacao,socioeconomico,float,feature,% da população em domicílio urbano (Censo 2022)
+taxa_urbanizacao,socioeconomico,float,feature,"% da população em domicílio urbano (Censo 2022, tabela SIDRA 9923)"
 ano_pib,socioeconomico,int,metadado,Ano de referência do PIB
-iegm_ord,gestao,ordinal_1_5,feature,IEGM iegm: conceito convertido em ordinal (C=1 ... A=5)
-iegm_conceito,gestao,str,rotulo,IEGM iegm: conceito original em letra
-i_planejamento_ord,gestao,ordinal_1_5,feature,IEGM i_planejamento: conceito convertido em ordinal (C=1 ... A=5)
-i_planejamento_conceito,gestao,str,rotulo,IEGM i_planejamento: conceito original em letra
-i_fiscal_ord,gestao,ordinal_1_5,feature,IEGM i_fiscal: conceito convertido em ordinal (C=1 ... A=5)
-i_fiscal_conceito,gestao,str,rotulo,IEGM i_fiscal: conceito original em letra
-i_educ_ord,gestao,ordinal_1_5,feature,IEGM i_educ: conceito convertido em ordinal (C=1 ... A=5)
-i_educ_conceito,gestao,str,rotulo,IEGM i_educ: conceito original em letra
-i_saude_ord,gestao,ordinal_1_5,feature,IEGM i_saude: conceito convertido em ordinal (C=1 ... A=5)
-i_saude_conceito,gestao,str,rotulo,IEGM i_saude: conceito original em letra
-i_amb_ord,gestao,ordinal_1_5,feature,IEGM i_amb: conceito convertido em ordinal (C=1 ... A=5)
-i_amb_conceito,gestao,str,rotulo,IEGM i_amb: conceito original em letra
-i_cidade_ord,gestao,ordinal_1_5,feature,IEGM i_cidade: conceito convertido em ordinal (C=1 ... A=5)
-i_cidade_conceito,gestao,str,rotulo,IEGM i_cidade: conceito original em letra
-i_gov_ti_ord,gestao,ordinal_1_5,feature,IEGM i_gov_ti: conceito convertido em ordinal (C=1 ... A=5)
-i_gov_ti_conceito,gestao,str,rotulo,IEGM i_gov_ti: conceito original em letra
-iegm_exercicio_ref,gestao,int,metadado,Exercício avaliado pelo IEGM
-iegm_ano_apuracao,gestao,int,metadado,Ano de apuração do IEGM
+iegm_ord,gestao,ordinal_1_5,feature,"IEGM iegm: conceito em ordinal (C=1 ... A=5), MÉDIA dos exercícios disponíveis (ver iegm_exercicio_ref)"
+iegm_conceito,gestao,str,rotulo,"IEGM iegm: conceito em letra do exercício MAIS RECENTE -- rótulo legível; não corresponde a _ord, que é a média"
+i_planejamento_ord,gestao,ordinal_1_5,feature,"IEGM i_planejamento: conceito em ordinal (C=1 ... A=5), MÉDIA dos exercícios disponíveis (ver iegm_exercicio_ref)"
+i_planejamento_conceito,gestao,str,rotulo,"IEGM i_planejamento: conceito em letra do exercício MAIS RECENTE -- rótulo legível; não corresponde a _ord, que é a média"
+i_fiscal_ord,gestao,ordinal_1_5,feature,"IEGM i_fiscal: conceito em ordinal (C=1 ... A=5), MÉDIA dos exercícios disponíveis (ver iegm_exercicio_ref)"
+i_fiscal_conceito,gestao,str,rotulo,"IEGM i_fiscal: conceito em letra do exercício MAIS RECENTE -- rótulo legível; não corresponde a _ord, que é a média"
+i_educ_ord,gestao,ordinal_1_5,feature,"IEGM i_educ: conceito em ordinal (C=1 ... A=5), MÉDIA dos exercícios disponíveis (ver iegm_exercicio_ref)"
+i_educ_conceito,gestao,str,rotulo,"IEGM i_educ: conceito em letra do exercício MAIS RECENTE -- rótulo legível; não corresponde a _ord, que é a média"
+i_saude_ord,gestao,ordinal_1_5,feature,"IEGM i_saude: conceito em ordinal (C=1 ... A=5), MÉDIA dos exercícios disponíveis (ver iegm_exercicio_ref)"
+i_saude_conceito,gestao,str,rotulo,"IEGM i_saude: conceito em letra do exercício MAIS RECENTE -- rótulo legível; não corresponde a _ord, que é a média"
+i_amb_ord,gestao,ordinal_1_5,feature,"IEGM i_amb: conceito em ordinal (C=1 ... A=5), MÉDIA dos exercícios disponíveis (ver iegm_exercicio_ref)"
+i_amb_conceito,gestao,str,rotulo,"IEGM i_amb: conceito em letra do exercício MAIS RECENTE -- rótulo legível; não corresponde a _ord, que é a média"
+i_cidade_ord,gestao,ordinal_1_5,feature,"IEGM i_cidade: conceito em ordinal (C=1 ... A=5), MÉDIA dos exercícios disponíveis (ver iegm_exercicio_ref)"
+i_cidade_conceito,gestao,str,rotulo,"IEGM i_cidade: conceito em letra do exercício MAIS RECENTE -- rótulo legível; não corresponde a _ord, que é a média"
+i_gov_ti_ord,gestao,ordinal_1_5,feature,"IEGM i_gov_ti: conceito em ordinal (C=1 ... A=5), MÉDIA dos exercícios disponíveis (ver iegm_exercicio_ref)"
+i_gov_ti_conceito,gestao,str,rotulo,"IEGM i_gov_ti: conceito em letra do exercício MAIS RECENTE -- rótulo legível; não corresponde a _ord, que é a média"
+iegm_exercicio_ref,gestao,str,metadado,"Exercício(s) avaliado(s) pelo IEGM, como intervalo"
+iegm_ano_apuracao,gestao,str,metadado,"Ano(s) de apuração do IEGM, como intervalo"
 total_ocorrencias_janela,qualidade,int,qualidade,Soma bruta das ocorrências do Bloco B -- detecta subnotificação
 n_ocorrencias,qualidade,int,qualidade,Total de ocorrências de qualquer natureza no município/janela
 flag_sem_iegm,qualidade,bool,flag,Sem nota IEGM (apenas a capital: fiscalizada pelo TCM-SP)

@@ -21,7 +21,12 @@ SSP_CRIMINAIS_GLOB = "SPDadosCriminais_*.xlsx"
 SSP_VEICULOS_GLOB = "VeiculosSubtraidos_*.xlsx"
 SSP_CELULARES_GLOB = "CelularesSubtraidos_*.xlsx"
 
-IEGM_RAW_PATH = IEGM_DIR / "ieg-m.xls"
+# O TCE-SP publica uma planilha por EXERCÍCIO. Temos três em disco (exercícios
+# 2022, 2023 e 2024, apurados em 2023, 2024 e 2025), e o pipeline lê todas as
+# que encontrar -- os nomes dos arquivos são irrelevantes e, de fato, enganosos
+# (`ieg_m_2025.xls` é o exercício 2022). O que vale é a coluna `exercicio_ref`
+# de dentro da planilha.
+IEGM_GLOB = "*.xls"
 
 # Gerados pelo ibge_sidra.py
 POPULACAO_CSV = IBGE_DIR / "ibge_populacao.csv"
@@ -45,6 +50,17 @@ UF_CODE_SP = "35"
 TAXA_POR_HABITANTES = 100_000
 CODIGO_CAPITAL = "3550308"   # São Paulo: fiscalizada pelo TCM-SP, fora do IEGM
 
+# --- Tabelas do SIDRA ---------------------------------------------------
+TABELA_POPULACAO = "6579"    # Estimativas de População (anual)
+TABELA_PIB = "5938"          # PIB dos Municípios (último período: 2023)
+# Urbanização: a tabela 202 é do Censo ANTIGO -- seus períodos param em 2010
+# (verificado na API: [1970, 1980, 1991, 2000, 2010]). Pedir period="last"
+# nela devolve silenciosamente o Censo 2010. A tabela do Censo 2022 é a 9923,
+# que desce a município (N6) e traz a classificação 1 (Situação do domicílio:
+# 6795=Total, 1=Urbana, 2=Rural).
+TABELA_URBANIZACAO = "9923"
+ANO_CENSO_URBANIZACAO = "2022"
+
 # Janela temporal da análise.
 #   None  -> usa todos os anos encontrados em data/raw/ssp/
 #   lista -> ex.: [2023, 2024, 2025]
@@ -52,15 +68,17 @@ CODIGO_CAPITAL = "3550308"   # São Paulo: fiscalizada pelo TCM-SP, fora do IEGM
 # A recomendação metodológica é [2023, 2024, 2025]: três anos civis completos,
 # posteriores à migração R.D.O. -> S.P.J. (concluída entre 2022 e 2023, ver a
 # aba METODOLOGIA dos arquivos da SSP) e posteriores ao choque de mobilidade
-# da pandemia. Enquanto só houver 2026 em disco, deixe None.
-ANOS_JANELA = None
+# da pandemia. Os três anos estão em disco e são completos (JAN-JUN + JUL-DEZ
+# em cada arquivo), logo exposicao_anos = 3,000 exatos.
+ANOS_JANELA = [2023, 2024, 2025]
 
 # Ano de referência da população usada como denominador das taxas.
 #   None -> usa o ano disponível no CSV do IBGE que estiver em data/raw/ibge/
 # ATENÇÃO: a tabela 6579 do SIDRA não publica estimativa para 2022 nem 2023
-# (anos de Censo/recalibração). Para a janela 2023-2025, use 2024 -- o ponto
-# médio da janela -- como referência única, e documente a escolha.
-ANO_POPULACAO_REF = None
+# (anos de Censo/recalibração) -- verificado na API: os períodos vão
+# [..., 2020, 2021, 2024, 2025, 2026]. Para a janela 2023-2025 usamos 2024,
+# o ponto médio da janela, como referência única.
+ANO_POPULACAO_REF = 2024
 
 # Limiar de população para sinalizar municípios sujeitos ao problema dos
 # números pequenos (uma única ocorrência vira uma taxa altíssima). Não exclui

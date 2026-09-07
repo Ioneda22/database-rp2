@@ -184,16 +184,18 @@ def montar_base_final() -> tuple[pd.DataFrame, pd.DataFrame, list[int], float]:
     base = base.merge(cmp_janela, on="codigo_ibge", how="left")
     for c in campos_comp:
         base[c] = base[c].fillna(0)
+    # Denominadores zerados viram NaN (município sem nenhum veículo subtraído
+    # na janela não tem "taxa de recuperação"; 0/0 seria uma proporção
+    # inventada). `.where(> 0)` em vez de `.replace(0, pd.NA)`: mantém a
+    # coluna numérica em vez de promovê-la a object.
+    veic_subtraido = base["veic_subtraido"].where(base["veic_subtraido"] > 0)
+    n_ocorr = base["n_ocorrencias"].where(base["n_ocorrencias"] > 0)
+
     # Efetividade institucional: quantos dos veículos subtraídos voltam.
-    base["taxa_recuperacao_veiculo"] = (
-        base["veic_localizado"] / base["veic_subtraido"].replace(0, pd.NA)
-    )
-    base["prop_veiculo_motocicleta"] = (
-        base["veic_moto"] / base["veic_subtraido"].replace(0, pd.NA)
-    )
+    base["taxa_recuperacao_veiculo"] = base["veic_localizado"] / veic_subtraido
+    base["prop_veiculo_motocicleta"] = base["veic_moto"] / veic_subtraido
     base["prop_celular_em_furto_roubo"] = (
-        (base["cel_furto"] + base["cel_roubo"]) /
-        base["n_ocorrencias"].replace(0, pd.NA)
+        (base["cel_furto"] + base["cel_roubo"]) / n_ocorr
     )
     base = base.drop(columns=campos_comp + ["n_via_publica", "n_noturno",
                                             "n_periodo_conhecido"])
@@ -259,7 +261,9 @@ def montar_dicionario(base: pd.DataFrame) -> pd.DataFrame:
             f"{desc} -- por 100 mil hab./ano")
 
     add("prop_via_publica", "textura", "float", "validacao_externa",
-        "Proporção de ocorrências em via pública (sugerida como validação externa)")
+        "Proporção de ocorrências com DESCR_SUBTIPOLOCAL='Via Pública' "
+        "(sugerida como validação externa). DESCR_SUBTIPOLOCAL e não "
+        "DESCR_TIPOLOCAL: este último só existe no export de 2025")
     add("prop_noturno", "textura", "float", "feature_tier2",
         "Proporção de ocorrências noturnas entre as de período conhecido")
     add("cobertura_periodo", "textura", "float", "qualidade",
@@ -276,7 +280,7 @@ def montar_dicionario(base: pd.DataFrame) -> pd.DataFrame:
     # A seção 3.1 do artigo nomeia taxa de urbanização como um dos três
     # indicadores do IBGE de interesse -- entra como feature do bloco.
     add("taxa_urbanizacao", "socioeconomico", "float", "feature",
-        "% da população em domicílio urbano (Censo 2022)")
+        "% da população em domicílio urbano (Censo 2022, tabela SIDRA 9923)")
     # `populacao` fica DELIBERADAMENTE fora das features: é a única variável
     # de tamanho num conjunto em que todo o resto já está normalizado por
     # habitante, e entraria dominando os grupos ("cidade grande x pequena").
@@ -286,11 +290,15 @@ def montar_dicionario(base: pd.DataFrame) -> pd.DataFrame:
 
     for destino in COLUNAS_IEGM.values():
         add(f"{destino}_ord", "gestao", "ordinal_1_5", "feature",
-            f"IEGM {destino}: conceito convertido em ordinal (C=1 ... A=5)")
+            f"IEGM {destino}: conceito em ordinal (C=1 ... A=5), MÉDIA dos "
+            "exercícios disponíveis (ver iegm_exercicio_ref)")
         add(f"{destino}_conceito", "gestao", "str", "rotulo",
-            f"IEGM {destino}: conceito original em letra")
-    add("iegm_exercicio_ref", "gestao", "int", "metadado", "Exercício avaliado pelo IEGM")
-    add("iegm_ano_apuracao", "gestao", "int", "metadado", "Ano de apuração do IEGM")
+            f"IEGM {destino}: conceito em letra do exercício MAIS RECENTE -- "
+            "rótulo legível; não corresponde a _ord, que é a média")
+    add("iegm_exercicio_ref", "gestao", "str", "metadado",
+        "Exercício(s) avaliado(s) pelo IEGM, como intervalo")
+    add("iegm_ano_apuracao", "gestao", "str", "metadado",
+        "Ano(s) de apuração do IEGM, como intervalo")
 
     add("total_ocorrencias_janela", "qualidade", "int", "qualidade",
         "Soma bruta das ocorrências do Bloco B -- detecta subnotificação")
@@ -320,9 +328,19 @@ def relatorio(base: pd.DataFrame, dic: pd.DataFrame, anos, exposicao) -> str:
     L.append("BASE FINAL -- perfis de municípios paulistas")
     L.append("=" * 68)
     L.append(f"Municípios: {len(base)}   Colunas: {len(base.columns)}")
-    L.append(f"Janela SSP: {anos}  ({exposicao:.3f} ano(s)-equivalente(s) de exposição)")
-    L.append(f"População de referência: {base['ano_populacao'].iloc[0]}")
-    L.append(f"PIB de referência: {base['ano_pib'].dropna().iloc[0]:.0f}")
+
+    # Anos de referência heterogêneos são uma limitação a DECLARAR no artigo,
+    # não um defeito a esconder: cada fonte publica no seu próprio calendário.
+    L.append("\n--- Anos de referência por fonte ---")
+    L.append(f"  Criminalidade (SSP)   {anos[0]}-{anos[-1]}  "
+             f"({exposicao:.3f} ano(s)-equivalente(s) de exposição)")
+    L.append(f"  Gestão (IEGM/TCE-SP)  exercícios "
+             f"{base['iegm_exercicio_ref'].dropna().iloc[0]} "
+             f"(apurados em {base['iegm_ano_apuracao'].dropna().iloc[0]})")
+    L.append(f"  População (denominador das taxas)  "
+             f"{base['ano_populacao'].iloc[0]}")
+    L.append(f"  PIB (SIDRA 5938)      {base['ano_pib'].dropna().iloc[0]:.0f}")
+    L.append("  Urbanização (SIDRA 9923)  Censo 2022")
     if exposicao < 0.999 * len(anos):
         L.append("\n  *** ATENÇÃO: a janela contém ano(s) INCOMPLETO(S). As taxas já")
         L.append("      estão anualizadas pela exposição, mas herdam viés sazonal.")

@@ -15,7 +15,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent / "src"))
 
 from config import (
-    SSP_DIR, IEGM_RAW_PATH, SSP_CRIMINAIS_GLOB,
+    SSP_DIR, IEGM_DIR, IEGM_GLOB, SSP_CRIMINAIS_GLOB,
     POPULACAO_CSV, PIB_PERCAPITA_CSV, URBANIZACAO_CSV,
     SSP_PAINEL_CSV, DATA_PROCESSED,
 )
@@ -40,11 +40,12 @@ def main() -> None:
 
     etapa("2/4 - Verificando os arquivos baixados manualmente")
     criminais = sorted(SSP_DIR.glob(SSP_CRIMINAIS_GLOB))
+    iegm = sorted(IEGM_DIR.glob(IEGM_GLOB))
     problemas = []
     if not criminais:
         problemas.append(f"nenhum {SSP_CRIMINAIS_GLOB} em {SSP_DIR}")
-    if not IEGM_RAW_PATH.exists():
-        problemas.append(f"{IEGM_RAW_PATH} não existe")
+    if not iegm:
+        problemas.append(f"nenhum {IEGM_GLOB} em {IEGM_DIR}")
     if problemas:
         print("Faltam arquivos que precisam ser baixados MANUALMENTE:")
         for p in problemas:
@@ -53,7 +54,10 @@ def main() -> None:
         return
     print(f"SSP: {len(criminais)} arquivo(s) -> "
           f"{', '.join(a.name for a in criminais)}")
-    print(f"IEGM: {IEGM_RAW_PATH.name}")
+    # O nome do arquivo do IEGM não diz o exercício (`ieg_m_2025.xls` é o
+    # exercício 2022); quem informa é a coluna exercicio_ref, lida adiante.
+    print(f"IEGM: {len(iegm)} planilha(s) -> "
+          f"{', '.join(a.name for a in iegm)}")
 
     etapa("3/4 - Agregando os microdados da SSP (município x ano)")
     if SSP_PAINEL_CSV.exists() and not forcar:

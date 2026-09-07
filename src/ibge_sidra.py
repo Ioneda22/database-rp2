@@ -16,17 +16,27 @@ Tabelas usadas (verificadas em sidra.ibge.gov.br/tabela/<codigo>):
           estimativa populacional mais recente). A tabela 6784 tem uma
           variável de per capita pronta, mas só existe até nível de UF, não
           desce a município -- não dá pra usar aqui.
-  - 202 : População residente por situação do domicílio (Censo) -- usada
+  - 9923: População residente por situação do domicílio, CENSO 2022 -- usada
           para calcular a taxa de urbanização (pop. urbana / pop. total).
-          Só existe para anos de Censo (2010, 2022), então trate como uma
-          variável "quase-estática" no seu dataset.
 
-IMPORTANTE: eu não consegui *executar* este script daqui de dentro (o
-sandbox onde rodo código não tem acesso liberado ao domínio do IBGE).
-A lógica segue a documentação oficial do sidrapy e exemplos publicados,
-mas na sua primeira execução real, dê uma conferida rápida nos prints de
-depuração -- se algum nome de coluna/variável vier diferente do esperado,
-o script avisa em vez de falhar silenciosamente.
+          ATENÇÃO: NÃO use a tabela 202 para isso. Ela é do Censo antigo e
+          seus períodos publicados param em 2010 (verificado na API:
+          [1970, 1980, 1991, 2000, 2010]). Pedir period="last" nela devolve
+          silenciosamente o Censo 2010 -- 15 anos defasado -- para uma das
+          duas únicas features do bloco socioeconômico. A tabela do Censo
+          2022 que desce a município (N6) é a 9923, com a classificação 1
+          (Situação do domicílio: 6795=Total, 1=Urbana, 2=Rural).
+
+          Como só existe ano de Censo, trate a urbanização como variável
+          "quase-estática" no dataset.
+
+ANOS DE REFERÊNCIA (verificados na API dos períodos):
+  6579 -> [..., 2020, 2021, 2024, 2025, 2026]: SEM 2022 e SEM 2023, que são
+          anos de Censo/recalibração. Por isso a janela 2023-2025 usa a
+          população de 2024 (config.ANO_POPULACAO_REF) como denominador
+          único, e não a de cada ano.
+  5938 -> último período publicado: 2023.
+  9923 -> período único: 2022.
 """
 from __future__ import annotations
 
@@ -35,7 +45,11 @@ import pandas as pd
 import requests
 import sidrapy
 
-from config import UF_CODE_SP, POPULACAO_CSV, PIB_PERCAPITA_CSV, URBANIZACAO_CSV
+from config import (
+    UF_CODE_SP, POPULACAO_CSV, PIB_PERCAPITA_CSV, URBANIZACAO_CSV,
+    TABELA_POPULACAO, TABELA_PIB, TABELA_URBANIZACAO,
+    ANO_CENSO_URBANIZACAO, ANO_POPULACAO_REF,
+)
 
 
 def _print_debug(label: str, df: pd.DataFrame) -> None:
@@ -124,10 +138,17 @@ def _filtrar_sp(df: pd.DataFrame, col_codigo: str = "D1C") -> pd.DataFrame:
 
 
 def get_populacao(periodo: str = "last") -> pd.DataFrame:
-    """População residente estimada por município de SP."""
-    print(f"Baixando população (tabela 6579, período={periodo})...")
+    """
+    População residente estimada por município de SP.
+
+    Não use period="last" para o denominador das taxas: hoje isso traria 2026.
+    O denominador da janela 2023-2025 é a população de config.ANO_POPULACAO_REF
+    (2024, o ponto médio da janela), e quem passa esse período é o main().
+    """
+    print(f"Baixando população (tabela {TABELA_POPULACAO}, "
+          f"período={periodo})...")
     df = sidrapy.get_table(
-        table_code="6579",
+        table_code=TABELA_POPULACAO,
         territorial_level="6",
         ibge_territorial_code="all",
         period=periodo,
@@ -157,13 +178,13 @@ def get_pib_total(periodo: str = "last") -> pd.DataFrame:
     # -- filtrando explicitamente para não pegar as variantes "Participação
     # do PIB ... na UF/mesorregião/etc", que também contêm o mesmo texto base.
     variavel, _ = _descobrir_variavel(
-        "5938",
+        TABELA_PIB,
         precisa_conter=["produto interno bruto", "preços correntes"],
         nao_pode_conter=["participação"],
     )
 
     df = sidrapy.get_table(
-        table_code="5938",
+        table_code=TABELA_PIB,
         territorial_level="6",
         ibge_territorial_code="all",
         variable=variavel,
@@ -214,7 +235,7 @@ def get_pib_percapita() -> pd.DataFrame:
     # Censo, por exemplo, saem por tabelas separadas). Checamos os períodos
     # realmente disponíveis e, se o ano do PIB não estiver lá, usamos o ano
     # disponível mais próximo (o mais recente <= ano do PIB) em vez de travar.
-    periodos_pop = _periodos_disponiveis("6579")
+    periodos_pop = _periodos_disponiveis(TABELA_POPULACAO)
     if ano_pib in periodos_pop:
         periodo_pop = ano_pib
     else:
@@ -247,26 +268,48 @@ def get_pib_percapita() -> pd.DataFrame:
     return df[[c for c in cols if c in df.columns]].reset_index(drop=True)
 
 
-def get_urbanizacao(periodo: str = "last") -> pd.DataFrame:
+def get_urbanizacao(periodo: str = ANO_CENSO_URBANIZACAO) -> pd.DataFrame:
     """
-    Taxa de urbanização (%) por município de SP, a partir do Censo
-    (tabela 202: população por situação do domicílio - urbana/rural/total).
+    Taxa de urbanização (%) por município de SP, a partir do Censo 2022
+    (tabela 9923: população residente por situação do domicílio).
 
-    Só existe para anos de Censo. Se `periodo="last"` não trouxer nada útil,
-    troque para o código do período do Censo mais recente (ex.: 2022).
+    NÃO troque para a tabela 202: ela é do Censo antigo e seus períodos param
+    em 2010, então `period="last"` devolveria o Censo 2010 sem avisar. Ver a
+    nota no topo do módulo.
+
+    Só existe para ano de Censo -- é uma variável quase-estática no dataset.
     """
-    print("Baixando situação do domicílio (tabela 202) para calcular urbanização...")
+    print(f"Baixando situação do domicílio (tabela {TABELA_URBANIZACAO}, "
+          f"Censo {periodo}) para calcular urbanização...")
+
+    disponiveis = _periodos_disponiveis(TABELA_URBANIZACAO)
+    if periodo not in disponiveis:
+        raise SystemExit(
+            f"A tabela {TABELA_URBANIZACAO} não publica o período {periodo}. "
+            f"Períodos disponíveis: {disponiveis}. Ajuste "
+            "ANO_CENSO_URBANIZACAO em config.py."
+        )
 
     # Sem passar `classification=.../all`, o SIDRA devolve só a categoria
     # "Total" agregada -- nunca a quebra Urbana/Rural que precisamos pra
     # calcular a taxa. Descobrimos o código da classificação dinamicamente
     # e pedimos explicitamente todas as categorias dela.
-    class_id, _ = _descobrir_classificacao("202", "situação do domicílio")
+    class_id, _ = _descobrir_classificacao(TABELA_URBANIZACAO,
+                                           "situação do domicílio")
+    # A 9923 tem duas variáveis (93 = população em pessoas, 1000093 = % do
+    # total). Pedimos a de contagem e calculamos a taxa por fora, para não
+    # depender do denominador que o IBGE escolheu para o percentual.
+    variavel, _ = _descobrir_variavel(
+        TABELA_URBANIZACAO,
+        precisa_conter=["população residente"],
+        nao_pode_conter=["percentual"],
+    )
 
     df = sidrapy.get_table(
-        table_code="202",
+        table_code=TABELA_URBANIZACAO,
         territorial_level="6",
         ibge_territorial_code="all",
+        variable=variavel,
         classification=f"{class_id}/all",
         period=periodo,
     )
@@ -315,7 +358,11 @@ def get_urbanizacao(periodo: str = "last") -> pd.DataFrame:
 
 
 def main() -> None:
-    populacao = get_populacao()
+    # O denominador das taxas é a população de ANO_POPULACAO_REF (2024), e
+    # não a mais recente publicada -- period="last" traria 2026.
+    periodo_pop = ("last" if ANO_POPULACAO_REF is None
+                   else str(ANO_POPULACAO_REF))
+    populacao = get_populacao(periodo=periodo_pop)
     populacao.to_csv(POPULACAO_CSV, index=False)
     print(f"-> salvo em {POPULACAO_CSV} ({len(populacao)} municípios)")
 
@@ -323,12 +370,9 @@ def main() -> None:
     pib.to_csv(PIB_PERCAPITA_CSV, index=False)
     print(f"-> salvo em {PIB_PERCAPITA_CSV} ({len(pib)} municípios)")
 
-    try:
-        urban = get_urbanizacao()
-        urban.to_csv(URBANIZACAO_CSV, index=False)
-        print(f"-> salvo em {URBANIZACAO_CSV} ({len(urban)} municípios)")
-    except SystemExit as e:
-        print(f"[erro] {e}")
+    urban = get_urbanizacao()
+    urban.to_csv(URBANIZACAO_CSV, index=False)
+    print(f"-> salvo em {URBANIZACAO_CSV} ({len(urban)} municípios)")
 
 
 if __name__ == "__main__":
