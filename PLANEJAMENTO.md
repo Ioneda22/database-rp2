@@ -1,7 +1,21 @@
 # Planejamento — Entrega dos avanços do relatório (16/09/2026)
 
-**Prazo:** quarta-feira, 16 set. 2026, 23h59 · **Hoje:** quarta-feira, 02 set. 2026
-**Janela de dados definida:** 2023–2025 (três anos civis completos)
+> ## ⚠ DESATUALIZADO — leiam o [ANDAMENTO.md](ANDAMENTO.md)
+>
+> Este documento foi escrito em 02/09 e duas premissas dele mudaram:
+>
+> - **O prazo passou para 23/09/2026.**
+> - **A clusterização saiu do escopo desta entrega** e vai para a seguinte.
+>   Os Resultados Parciais e a Discussão passam a ser sobre a análise
+>   exploratória e o pré-processamento, ou seja, as Fases 1 a 3.
+>
+> As Fases 0 a 3 já estão **concluídas**. As Fases 4 e 5 (clusterização e
+> perfis) continuam válidas, mas para a próxima entrega. O restante do texto
+> abaixo permanece útil como referência metodológica.
+
+**Prazo original:** quarta-feira, 16 set. 2026, 23h59 · **Escrito em:** 02 set. 2026
+**Janela de dados definida:** 2023–2025 (três anos civis completos) — confirmada
+empiricamente na Fase 1
 
 ---
 

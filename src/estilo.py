@@ -43,6 +43,13 @@ CMAP_DIVERGENTE = LinearSegmentedColormap.from_list(
     "rp2_div", [AZUL, NEUTRO, VERMELHO], N=256,
 )
 
+# Sequencial = UMA cor, do claro ao escuro. Serve para magnitude contínua e é
+# a única rampa que sobrevive à impressão em cinza, porque a informação está
+# na luminosidade e não no matiz.
+CMAP_SEQUENCIAL = LinearSegmentedColormap.from_list(
+    "rp2_seq", ["#cde2fb", "#86b6ef", "#2a78d6", "#184f95", "#0d366b"], N=256,
+)
+
 
 def aplicar_estilo() -> None:
     """Ajusta o matplotlib. Chame uma vez no topo do notebook."""

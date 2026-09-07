@@ -193,9 +193,10 @@ de listar colunas na mão — é o que permite:
 ```
 notebooks/01_validacao_temporal.ipynb   Fase 1 — Figura 1
 notebooks/02_exploratoria.ipynb         Fase 2 — Tabela 2 e Figura 2
+notebooks/03_preprocessamento.ipynb     Fase 3 — Figura 3 + matriz_modelagem.csv
 ```
 
-Ambos rodam sobre `data/processed/`; nenhum reprocessa microdado. As figuras
+Todos rodam sobre `data/processed/`; nenhum reprocessa microdado. As figuras
 saem em `figuras/`, prontas para subir no Overleaf.
 
 > ⚠ **Cuidado com o kernel.** Há mais de um Python instalado na máquina e nem
@@ -218,6 +219,16 @@ hipótese de artefato de migração previria.
 parece introduzir é zero-inflação reaparecendo, não excesso de correção
 (retirando os zeros, toda assimetria pós-`log1p` cai para a faixa −0,5 a
 +0,7).
+
+**Conclusão da Fase 3:** o escalonamento é `StandardScaler`, e **não**
+`RobustScaler` como o plano previa. O peso `1/√n` por bloco é deduzido supondo
+que cada coluna padronizada valha uma unidade de variância — o que só o
+`StandardScaler` garante. Com ele os blocos ficam em 33,3% cada; com
+`RobustScaler` ficavam em 37/33/30 e a segunda componente principal era
+**uma variável só** (`i_planejamento_ord`, carga 0,88, porque seu IQR de 0,333
+fazia o escalonador multiplicá-la por três). São necessárias **9 componentes
+para 80% da variância**: não há estrutura de baixa dimensão, o que reforça que
+os três blocos são complementares.
 
 ## Estrutura
 
