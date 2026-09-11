@@ -1,37 +1,24 @@
 """
-Construção da base final: uma linha por município do estado de São Paulo.
+Junta SSP, IEGM e IBGE numa base com uma linha por município.
 
-DESENHO DA PESQUISA (etapa única). O artigo clusteriza os municípios sobre a
-base INTEGRADA -- criminalidade + vulnerabilidade socioeconômica + efetividade
-da gestão entram juntas no espaço de features (ver artigo.tex, linhas 45-47 e
-64). Esta base entrega os três blocos rotulados, e o `dicionario_base.csv`
-diz a que bloco cada coluna pertence.
+- A chave é codigo_ibge em todas as fontes. Não juntamos por nome, porque
+  o município onde o BO foi registrado nem sempre é o do local do fato.
+- As ocorrências viram taxa por 100 mil habitantes por ano:
 
-CHAVE DE JUNÇÃO: `codigo_ibge`, em todas as fontes. A SSP traz `COD IBGE` e o
-IEGM traz `codigo_municipio` -- nenhum casamento por nome é necessário, e
-tampouco desejável: `NOME_MUNICIPIO` da SSP é ambíguo (267 nomes com mais de
-um código).
+      taxa = ocorrencias_na_janela / (populacao * exposicao_anos) * 100.000
 
-TAXAS. As ocorrências viram taxa por 100 mil habitantes-ano:
-
-    taxa = ocorrencias_na_janela / (populacao_ref * exposicao_anos) * 100.000
-
-`exposicao_anos` é lido de `ssp_cobertura.csv` como soma de (meses
-observados / 12) por ano da janela. Isso é o que torna comparável uma janela
-composta por anos completos e uma janela provisória com um ano parcial -- em
-2026 só há 7 meses, logo exposicao_anos = 0,583 e não 1,0.
-
-A BASE MANTÉM OS 645 MUNICÍPIOS. Exclusões (capital, municípios pequenos) são
-decisão do script de modelagem, não da base: aqui elas viram apenas flags,
-para que a análise de sensibilidade prometida na seção 3.3 do artigo possa ser
-feita sem regerar nada.
+  exposicao_anos vem de ssp_cobertura.csv (meses observados / 12, somados).
+  Assim um ano incompleto não derruba a taxa.
+- A base mantém os 645 municípios. Tirar a capital ou os municípios pequenos
+  é decisão da análise; aqui eles só recebem uma flag.
 """
 from __future__ import annotations
 
 import pandas as pd
 
 from config import (
-    POPULACAO_CSV, PIB_PERCAPITA_CSV, URBANIZACAO_CSV,
+    POPULACAO_CSV, PIB_PERCAPITA_CSV, URBANIZACAO_CSV, CENSO2022_CSV,
+    LIMIAR_REDUNDANCIA,
     SSP_PAINEL_CSV, SSP_TEXTURA_CSV, SSP_COMPLEMENTAR_CSV, SSP_COBERTURA_CSV,
     BASE_FINAL_CSV, DICIONARIO_CSV, RELATORIO_TXT,
     ANOS_JANELA, ANO_POPULACAO_REF, POPULACAO_MINIMA, CODIGO_CAPITAL,
@@ -42,7 +29,7 @@ from parse_ssp import normaliza
 
 
 def _limpa_nome(serie: pd.Series) -> pd.Series:
-    """Os CSVs do SIDRA vêm com sufixo de UF: 'Adamantina - SP' -> 'Adamantina'."""
+    """Tira o '- SP' do fim do nome: 'Adamantina - SP' vira 'Adamantina'."""
     return serie.astype(str).str.replace(r"\s*-\s*SP$", "", regex=True).str.strip()
 
 
@@ -53,7 +40,7 @@ def _codigo(serie: pd.Series) -> pd.Series:
 # ---------------------------------------------------------------------------
 
 def carregar_ibge() -> pd.DataFrame:
-    """Base mestre: os 645 municípios de SP, com população, PIB e urbanização."""
+    """Monta a lista dos 645 municípios com os dados do IBGE."""
     pop = pd.read_csv(POPULACAO_CSV)
     pop["codigo_ibge"] = _codigo(pop["codigo_ibge"])
     base = pd.DataFrame({
@@ -63,12 +50,9 @@ def carregar_ibge() -> pd.DataFrame:
         "ano_populacao": pop.get("ano_populacao"),
     }).drop_duplicates(subset="codigo_ibge").reset_index(drop=True)
 
-    # PIB per capita é RECALCULADO aqui, e não lido pronto do CSV.
-    # Motivo: ibge_sidra.py divide o PIB pela estimativa populacional mais
-    # próxima <= ano do PIB; como a tabela 6579 não publica 2022 nem 2023, ele
-    # cai em 2021 -- o CSV em disco traz PIB de 2023 sobre população de 2021,
-    # o que infla o per capita de municípios em crescimento. Usamos a
-    # população de referência da base, que é bem mais próxima do ano do PIB.
+    # O PIB per capita é recalculado aqui com a população de 2024. O CSV do
+    # ibge_sidra.py usa a população de 2021 (a tabela do IBGE não tem 2022
+    # nem 2023), e isso deixaria o valor alto demais nas cidades que cresceram.
     pib = pd.read_csv(PIB_PERCAPITA_CSV)
     pib["codigo_ibge"] = _codigo(pib["codigo_ibge"])
     base = base.merge(
@@ -83,11 +67,16 @@ def carregar_ibge() -> pd.DataFrame:
     urb["codigo_ibge"] = _codigo(urb["codigo_ibge"])
     base = base.merge(urb[["codigo_ibge", "taxa_urbanizacao"]],
                       on="codigo_ibge", how="left")
+
+    # Censo 2022: alfabetização, renda mediana, esgoto e lixo.
+    censo = pd.read_csv(CENSO2022_CSV)
+    censo["codigo_ibge"] = _codigo(censo["codigo_ibge"])
+    base = base.merge(censo, on="codigo_ibge", how="left")
     return base
 
 
 def definir_janela(cobertura: pd.DataFrame) -> tuple[list[int], float]:
-    """Devolve (anos da janela, exposição em anos-equivalentes)."""
+    """Devolve os anos da janela e a exposição (anos completos observados)."""
     disponiveis = sorted(cobertura["ano"].astype(int).tolist())
     anos = sorted(ANOS_JANELA) if ANOS_JANELA else disponiveis
 
@@ -105,11 +94,10 @@ def definir_janela(cobertura: pd.DataFrame) -> tuple[list[int], float]:
 
 
 def agregar_janela(painel: pd.DataFrame, anos: list[int]) -> pd.DataFrame:
-    """Soma as ocorrências da janela e as reduz aos grupos do Bloco B."""
+    """Soma as ocorrências dos anos da janela por município e grupo."""
     dados = painel[painel["ano"].astype(int).isin(anos)]
 
-    # GRUPOS_NATUREZA é escrito com acento em config.py; o painel guarda a
-    # natureza já normalizada. Normalizamos os dois lados para casar.
+    # GRUPOS_NATUREZA tem acento e o painel não. Normalizamos os dois lados.
     mapa = {}
     for grupo, naturezas in GRUPOS_NATUREZA.items():
         for nat in naturezas:
@@ -130,7 +118,7 @@ def agregar_janela(painel: pd.DataFrame, anos: list[int]) -> pd.DataFrame:
         .unstack(fill_value=0).reset_index()
     )
     largo.columns.name = None
-    # Um grupo pode não ter nenhuma ocorrência em todo o estado na janela.
+    # Se um grupo não tiver nenhuma ocorrência no estado, cria a coluna zerada.
     for grupo in GRUPOS_NATUREZA:
         if grupo not in largo.columns:
             largo[grupo] = 0
@@ -148,7 +136,7 @@ def montar_base_final() -> tuple[pd.DataFrame, pd.DataFrame, list[int], float]:
     anos, exposicao = definir_janela(cobertura)
     print(f"Janela: {anos} | exposição = {exposicao:.3f} ano(s)-equivalente(s)")
 
-    # --- população de referência (denominador) ---
+    # --- população usada como denominador ---
     if ANO_POPULACAO_REF is not None:
         ano_pop = ANO_POPULACAO_REF
         if str(base["ano_populacao"].iloc[0]) != str(ano_pop):
@@ -157,7 +145,7 @@ def montar_base_final() -> tuple[pd.DataFrame, pd.DataFrame, list[int], float]:
                   "ano correto ou deixe ANO_POPULACAO_REF=None.")
     ano_pop = base["ano_populacao"].iloc[0]
 
-    # --- Bloco B: taxas de criminalidade ---
+    # --- taxas de criminalidade ---
     contagens = agregar_janela(painel, anos)
     base = base.merge(contagens, on="codigo_ibge", how="left")
     pessoas_ano = base["populacao"] * exposicao
@@ -167,7 +155,7 @@ def montar_base_final() -> tuple[pd.DataFrame, pd.DataFrame, list[int], float]:
     base["total_ocorrencias_janela"] = base[list(GRUPOS_NATUREZA)].sum(axis=1)
     base = base.drop(columns=list(GRUPOS_NATUREZA))
 
-    # --- Bloco C: textura (proporções, não volumes) ---
+    # --- proporções sobre local e período ---
     tex = (textura[textura["ano"].astype(int).isin(anos)]
            .groupby("codigo_ibge")[["n_ocorrencias", "n_via_publica",
                                     "n_periodo_conhecido", "n_noturno"]].sum()
@@ -184,14 +172,11 @@ def montar_base_final() -> tuple[pd.DataFrame, pd.DataFrame, list[int], float]:
     base = base.merge(cmp_janela, on="codigo_ibge", how="left")
     for c in campos_comp:
         base[c] = base[c].fillna(0)
-    # Denominadores zerados viram NaN (município sem nenhum veículo subtraído
-    # na janela não tem "taxa de recuperação"; 0/0 seria uma proporção
-    # inventada). `.where(> 0)` em vez de `.replace(0, pd.NA)`: mantém a
-    # coluna numérica em vez de promovê-la a object.
+    # Se o denominador for zero, a proporção fica NaN (não existe). Usamos
+    # where() em vez de replace(0, NA) para a coluna continuar numérica.
     veic_subtraido = base["veic_subtraido"].where(base["veic_subtraido"] > 0)
     n_ocorr = base["n_ocorrencias"].where(base["n_ocorrencias"] > 0)
 
-    # Efetividade institucional: quantos dos veículos subtraídos voltam.
     base["taxa_recuperacao_veiculo"] = base["veic_localizado"] / veic_subtraido
     base["prop_veiculo_motocicleta"] = base["veic_moto"] / veic_subtraido
     base["prop_celular_em_furto_roubo"] = (
@@ -200,12 +185,12 @@ def montar_base_final() -> tuple[pd.DataFrame, pd.DataFrame, list[int], float]:
     base = base.drop(columns=campos_comp + ["n_via_publica", "n_noturno",
                                             "n_periodo_conhecido"])
 
-    # --- Bloco E: IEGM ---
+    # --- IEGM ---
     iegm = carregar_iegm()
     base = base.merge(iegm.drop(columns=["municipio_iegm"]),
                       on="codigo_ibge", how="left")
 
-    # --- Bloco F: flags de qualidade ---
+    # --- flags ---
     base["flag_sem_iegm"] = base["iegm_ord"].isna()
     base["flag_pop_pequena"] = base["populacao"] < POPULACAO_MINIMA
     base["flag_capital"] = base["codigo_ibge"] == CODIGO_CAPITAL
@@ -221,15 +206,11 @@ def montar_base_final() -> tuple[pd.DataFrame, pd.DataFrame, list[int], float]:
 
 def montar_dicionario(base: pd.DataFrame) -> pd.DataFrame:
     """
-    Dicionário legível por máquina: a que bloco cada coluna pertence e qual é
-    o seu papel na modelagem.
+    Monta o dicionário da base: para cada coluna, o bloco, o tipo e o papel
+    na modelagem (feature, contexto, flag...).
 
-    O script de clusterização deve ler ESTE arquivo em vez de listar colunas
-    na mão -- é o que permite pesar os blocos explicitamente. Sem peso, os
-    três blocos entram no K-means com influência proporcional ao número de
-    colunas que cada fonte por acaso tem (o IEGM levaria ~40% do orçamento de
-    distância com quase nenhuma variância). Sugestão: peso 1/sqrt(n) por
-    bloco, para que criminalidade, socioeconômico e gestão contribuam igual.
+    Os notebooks leem este arquivo para saber quais colunas são features.
+    Assim ninguém precisa listar coluna na mão.
     """
     linhas = []
 
@@ -264,34 +245,73 @@ def montar_dicionario(base: pd.DataFrame) -> pd.DataFrame:
         "Proporção de ocorrências com DESCR_SUBTIPOLOCAL='Via Pública' "
         "(sugerida como validação externa). DESCR_SUBTIPOLOCAL e não "
         "DESCR_TIPOLOCAL: este último só existe no export de 2025")
+    # Os números das descrições são calculados aqui, para não ficarem
+    # desatualizados.
+    cobertura_med = base["cobertura_periodo"].median()
     add("prop_noturno", "textura", "float", "feature_tier2",
-        "Proporção de ocorrências noturnas entre as de período conhecido")
+        "Proporção de ocorrências noturnas entre as de período conhecido. "
+        f"Cobertura baixa (mediana {cobertura_med:.0%}); não promover a "
+        "feature")
     add("cobertura_periodo", "textura", "float", "qualidade",
-        "Fração de ocorrências com DESC_PERIODO preenchido (~42% em 2026)")
-    add("taxa_recuperacao_veiculo", "textura", "float", "feature_tier2",
-        "Veículos localizados / veículos subtraídos -- efetividade institucional")
+        "Fração de ocorrências com período preenchido. Mediana na janela: "
+        f"{cobertura_med:.2f}")
+
+    # A razão localizados/subtraídos passa de 1 em muitos municípios, porque
+    # um carro roubado numa cidade pode ser localizado em outra. Então ela
+    # não mede a efetividade da polícia local.
+    recup = base["taxa_recuperacao_veiculo"].dropna()
+    acima_de_um = int((recup > 1).sum())
+    add("taxa_recuperacao_veiculo", "textura", "float", "contexto",
+        "Veículos localizados no município / veículos subtraídos no "
+        f"município. Excede 1 em {acima_de_um} de {len(recup)} municípios "
+        f"({acima_de_um / len(recup):.0%}), pois inclui veículos subtraídos "
+        "em outros municípios. NÃO mede efetividade institucional")
     add("prop_veiculo_motocicleta", "textura", "float", "feature_tier2",
         "Participação de motos entre os veículos subtraídos")
     add("prop_celular_em_furto_roubo", "textura", "float", "feature_tier2",
         "Ocorrências com celular subtraído / total de ocorrências")
 
-    add("pib_percapita", "socioeconomico", "float", "feature",
-        "PIB per capita em R$ (recalculado com a população de referência)")
-    # A seção 3.1 do artigo nomeia taxa de urbanização como um dos três
-    # indicadores do IBGE de interesse -- entra como feature do bloco.
+    # O PIB per capita fica muito alto em cidades com uma usina ou um polo
+    # industrial, então não representa bem a renda das famílias. Ele só fica
+    # como feature se não for redundante com a renda domiciliar mediana.
+    rho_pib_renda = base["pib_percapita"].corr(
+        base["renda_domiciliar_mediana"], method="spearman")
+    papel_pib = ("contexto" if abs(rho_pib_renda) > LIMIAR_REDUNDANCIA
+                 else "feature")
+    add("pib_percapita", "socioeconomico", "float", papel_pib,
+        "PIB per capita em R$ (recalculado com a população de referência). "
+        "Distorcido por enclaves industriais; Spearman com "
+        f"renda_domiciliar_mediana = {rho_pib_renda:.2f}")
     add("taxa_urbanizacao", "socioeconomico", "float", "feature",
         "% da população em domicílio urbano (Censo 2022, tabela SIDRA 9923)")
-    # `populacao` fica DELIBERADAMENTE fora das features: é a única variável
-    # de tamanho num conjunto em que todo o resto já está normalizado por
-    # habitante, e entraria dominando os grupos ("cidade grande x pequena").
-    # Se quiserem tamanho como eixo explícito, acrescentem log(populacao) e
-    # documentem -- por isso ela fica marcada como 'contexto', e não removida.
+    # A população fica fora das features de propósito: todo o resto já é por
+    # habitante, e ela faria os grupos virarem "cidade grande x pequena".
     add("ano_pib", "socioeconomico", "int", "metadado", "Ano de referência do PIB")
 
+    add("taxa_alfabetizacao", "socioeconomico", "float", "feature",
+        "% de pessoas de 15 anos ou mais alfabetizadas "
+        "(Censo 2022, SIDRA 9543)")
+    add("renda_domiciliar_mediana", "socioeconomico", "float", "feature",
+        "Rendimento domiciliar per capita mediano, em R$ "
+        "(Censo 2022, SIDRA 10295)")
+    add("prop_esgoto_adequado", "socioeconomico", "float", "feature",
+        "% de domicílios com rede geral de esgoto ou fossa séptica "
+        "(Censo 2022, SIDRA 6805)")
+    add("prop_lixo_coletado", "socioeconomico", "float", "feature",
+        "% de domicílios com lixo coletado (Censo 2022, SIDRA 6892)")
+    add("ano_censo", "socioeconomico", "int", "metadado",
+        "Ano do Censo dos quatro indicadores acima")
+
+    # O índice geral do IEGM é calculado a partir das 7 dimensões. Usar os
+    # dois como feature contaria a mesma coisa duas vezes. Ficam as
+    # dimensões; o índice geral fica como contexto.
     for destino in COLUNAS_IEGM.values():
-        add(f"{destino}_ord", "gestao", "ordinal_1_5", "feature",
+        papel_ord = "contexto" if destino == "iegm" else "feature"
+        add(f"{destino}_ord", "gestao", "ordinal_1_5", papel_ord,
             f"IEGM {destino}: conceito em ordinal (C=1 ... A=5), MÉDIA dos "
-            "exercícios disponíveis (ver iegm_exercicio_ref)")
+            "exercícios disponíveis (ver iegm_exercicio_ref)"
+            + (". Fora das features: é composto pelas 7 dimensões, que já "
+               "entram" if destino == "iegm" else ""))
         add(f"{destino}_conceito", "gestao", "str", "rotulo",
             f"IEGM {destino}: conceito em letra do exercício MAIS RECENTE -- "
             "rótulo legível; não corresponde a _ord, que é a média")
@@ -329,8 +349,8 @@ def relatorio(base: pd.DataFrame, dic: pd.DataFrame, anos, exposicao) -> str:
     L.append("=" * 68)
     L.append(f"Municípios: {len(base)}   Colunas: {len(base.columns)}")
 
-    # Anos de referência heterogêneos são uma limitação a DECLARAR no artigo,
-    # não um defeito a esconder: cada fonte publica no seu próprio calendário.
+    # Cada fonte tem um ano de referência diferente. Isso vai como limitação
+    # no artigo.
     L.append("\n--- Anos de referência por fonte ---")
     L.append(f"  Criminalidade (SSP)   {anos[0]}-{anos[-1]}  "
              f"({exposicao:.3f} ano(s)-equivalente(s) de exposição)")
@@ -341,6 +361,7 @@ def relatorio(base: pd.DataFrame, dic: pd.DataFrame, anos, exposicao) -> str:
              f"{base['ano_populacao'].iloc[0]}")
     L.append(f"  PIB (SIDRA 5938)      {base['ano_pib'].dropna().iloc[0]:.0f}")
     L.append("  Urbanização (SIDRA 9923)  Censo 2022")
+    L.append("  Alfabetização, renda mediana, esgoto e lixo  Censo 2022")
     if exposicao < 0.999 * len(anos):
         L.append("\n  *** ATENÇÃO: a janela contém ano(s) INCOMPLETO(S). As taxas já")
         L.append("      estão anualizadas pela exposição, mas herdam viés sazonal.")
@@ -376,6 +397,13 @@ def relatorio(base: pd.DataFrame, dic: pd.DataFrame, anos, exposicao) -> str:
     L.append("\n  Zeros elevados = zero-inflação. Ela cai ao ampliar a janela:")
     L.append("  estimativa Poisson para CVLI -- 1 ano: 46% | 2 anos: 31% | "
              "3 anos: 23% | 5 anos: 14%.")
+
+    L.append("\n--- pib_percapita x renda_domiciliar_mediana ---")
+    rho = base["pib_percapita"].corr(base["renda_domiciliar_mediana"],
+                                     method="spearman")
+    papel_pib = dic.loc[dic["coluna"] == "pib_percapita", "papel"].iloc[0]
+    L.append(f"  Spearman = {rho:.3f}  (limiar de redundância "
+             f"{LIMIAR_REDUNDANCIA}) -> pib_percapita como '{papel_pib}'")
 
     L.append("\n--- Espaço de features (etapa única) ---")
     feats = dic[dic["papel"] == "feature"]

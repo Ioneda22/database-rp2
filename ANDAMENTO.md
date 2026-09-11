@@ -1,6 +1,6 @@
 # Andamento — o que está pronto, o que falta e o que mudou
 
-**Atualizado em:** 07/09/2026 · **Entrega:** 23/09/2026 (16 dias)
+**Atualizado em:** 10/09/2026 · **Entrega:** 23/09/2026 (13 dias)
 
 Este arquivo é o estado do projeto. O [README.md](README.md) explica como
 rodar. O [PLANEJAMENTO.md](PLANEJAMENTO.md) foi escrito para a entrega de
@@ -48,7 +48,7 @@ de alternativas e figuras próprias, não como um passo administrativo.
 **Toda a Trilha A desta entrega está pronta.** O que falta é exclusivamente
 texto — e o `artigo.tex` ainda não teve uma linha alterada: título antigo,
 seção `Cronograma` presente, Método inteiro no futuro. São ~9 páginas a
-escrever em 16 dias, sem nenhuma dependência de código.
+escrever em 13 dias, sem nenhuma dependência de código.
 
 ---
 
@@ -56,8 +56,10 @@ escrever em 16 dias, sem nenhuma dependência de código.
 
 ### 3.1 Base de dados
 
-`data/processed/base_final.csv` — **645 municípios × 49 colunas**.
-**19 features:** 9 criminalidade + 2 socioeconômico + 8 gestão.
+`data/processed/base_final.csv` — **645 municípios × 54 colunas**.
+**22 features:** 9 criminalidade + 6 socioeconômico + 7 gestão. (Em 10/09
+entraram quatro indicadores do Censo 2022 e saiu `iegm_ord`, que é composto
+pelas 7 dimensões e contaria duas vezes.)
 
 | Fonte | Ano de referência |
 |---|---|
@@ -66,8 +68,9 @@ escrever em 16 dias, sem nenhuma dependência de código.
 | População (denominador) | 2024 |
 | PIB (SIDRA 5938) | 2023 |
 | Urbanização (SIDRA 9923) | Censo 2022 |
+| Alfabetização, renda mediana, esgoto, lixo (SIDRA 9543, 10295, 6805, 6892) | Censo 2022 |
 
-`data/processed/matriz_modelagem.csv` — **644 × 19**, já transformada,
+`data/processed/matriz_modelagem.csv` — **644 × 22**, já transformada,
 padronizada e ponderada. É o insumo direto da clusterização da próxima
 entrega.
 
@@ -77,14 +80,16 @@ entrega.
 |---|---|
 | `main.py` | orquestra as 4 etapas de construção |
 | `src/config.py` | caminhos, janela, tabelas do SIDRA, agrupamento de naturezas |
-| `src/ibge_sidra.py` | baixa população, PIB e urbanização da API do SIDRA |
+| `src/ibge_sidra.py` | baixa população, PIB, urbanização e 4 indicadores do Censo 2022 da API do SIDRA |
 | `src/parse_ssp.py` | 4,8 M de linhas de microdado → painel mensal (streaming) |
 | `src/parse_iegm.py` | 3 exercícios do IEGM → média ordinal por município |
 | `src/merge_bases.py` | une tudo por `codigo_ibge` → base final + dicionário |
-| `src/estilo.py` | paleta validada e `rcParams` das figuras |
+| `src/figuras.py` | uma função por figura do artigo; os notebooks só preparam o dado e chamam |
+| `src/estilo.py` | estilo pronto do matplotlib e `salvar()` |
 | `notebooks/01_validacao_temporal.ipynb` | Fase 1 |
-| `notebooks/02_exploratoria.ipynb` | Fase 2 |
-| `notebooks/03_preprocessamento.ipynb` | Fase 3 |
+| `notebooks/02_exploratoria.ipynb` | Fase 2, com seção 0 de primeiro contato com a base |
+| `notebooks/03_preprocessamento.ipynb` | Fase 3, pipeline do `sklearn` (75 linhas de código) |
+| `notebooks/03b_apendice_escalonadores.ipynb` | apêndice: por que `StandardScaler` |
 
 ### 3.3 Figuras e tabelas geradas
 
@@ -97,9 +102,11 @@ entrega.
 | Orçamento de distância por bloco | `figuras/figura_orcamento_blocos.png` |
 | Distribuições antes/depois de `log1p` | `figuras/figura_distribuicoes_log1p.png` |
 | Municípios em PC1 × PC2 | `figuras/figura_pc1_pc2.png` |
+| EDA: população em escala log | `figuras/figura_eda_populacao.png` |
+| EDA: boxplot das taxas | `figuras/figura_eda_boxplot_taxas.png` |
 | **Tabela 2** — descritivas + zero-inflação | `data/processed/tabela2_descritivas.csv` |
 
-São 7 figuras para 3 páginas de resultados — **mais do que cabe**. Escolher
+São 9 figuras para 3 páginas de resultados — **mais do que cabe**. Escolher
 quais entram é parte do trabalho de escrita (ver §4.2).
 
 ### 3.4 Números verificados — prontos para o artigo
@@ -142,7 +149,11 @@ Todos medidos, nenhum estimado.
 
 - Zero-inflação do CVLI: **20,3%**, abaixo dos ~23% projetados.
 - Nenhum par com |ρ| > 0,85. Máximo **0,763** (`roubo_outros × roubo_veiculo`).
-  **As 19 features seguem inteiras.**
+  Entre os novos indicadores, urbanização × lixo coletado chega a 0,74 e
+  urbanização × esgoto a 0,67, abaixo do limiar. **As 22 features seguem
+  inteiras.**
+- `pib_percapita` × `renda_domiciliar_mediana`: ρ = 0,41. Medem coisas
+  diferentes; o PIB fica, com o caveat dos enclaves para a Discussão.
 - `log1p` mantido: a assimetria negativa que ele parece introduzir é
   zero-inflação, não excesso de correção. Sem os zeros, tudo cai para −0,5 a
   +0,7. Em `taxa_estupro_total`, **7 municípios** produzem assimetria −2,3.
@@ -151,15 +162,20 @@ Todos medidos, nenhum estimado.
 
 - **`StandardScaler` no lugar de `RobustScaler`** (desvio do plano, ver §5).
   Só assim o peso `1/√n` entrega a paridade que promete: **33,3% para cada
-  bloco**, contra 37/33/30 com `RobustScaler`.
-- Com `RobustScaler`, `i_planejamento_ord` respondia sozinha por **88% da
-  segunda componente** — IQR de 0,333 (70% dos municípios no mesmo valor)
-  fazia o escalonador multiplicá-la por três.
-- Sem peso, o orçamento de distância é 47,4 / 10,5 / 42,1.
-- **9 componentes para 80% da variância**, de 19. Não há estrutura de baixa
+  bloco**, contra 34/36/30 com `RobustScaler`.
+- Com `RobustScaler`, `i_planejamento_ord` respondia sozinha pela segunda
+  componente (carga **0,93**) — IQR de 0,333 (70% dos municípios no mesmo
+  valor) fazia o escalonador multiplicá-la por três.
+- Sem peso, o orçamento de distância é 40,9 / 27,3 / 31,8.
+- **12 componentes para 80% da variância**, de 22. Não há estrutura de baixa
   dimensão.
-- PC1 (27,5%) é um eixo de urbanização e porte econômico. A nuvem PC1×PC2 é um
-  **gradiente contínuo**, sem grupos naturalmente separados.
+- PC1 (24,6%) é um eixo de condição socioeconômica: alfabetização,
+  urbanização, coleta de lixo, renda e esgoto, todos com carga positiva.
+  PC2 (12,5%) opõe saúde e educação do IEGM às taxas de roubo. A nuvem
+  PC1×PC2 é um **gradiente contínuo**, sem grupos naturalmente separados.
+- O peso `1/√n` tem ancoragem: é a simplificação da ponderação por grupo da
+  Análise Fatorial Múltipla (Escofier e Pagès, 1994). Entrada BibTeX no
+  README.
 
 ---
 
@@ -191,14 +207,14 @@ Há mais material do que espaço. Sugestão de corte, em ordem de valor:
 | ✅ | Figura 2 — correlação de Spearman | Fase 2 |
 | ✅ | Figura 3 — variância explicada do PCA | Fase 3 |
 | ⚠ | Orçamento por bloco — se sobrar espaço; senão vira texto | Fase 3 |
-| ❌ | Distribuições `log1p`, PC1×PC2, série por natureza | apoio |
+| ❌ | Distribuições `log1p`, PC1×PC2, série por natureza, figuras de EDA | apoio |
 
 Os três achados que a seção precisa deixar claros:
 
 1. A janela foi **testada**, não escolhida por conveniência.
 2. Nenhuma feature foi podada — os blocos **não são redundantes**.
-3. São necessárias 9 componentes para 80% da variância — **a integração das
-   três fontes acrescenta informação**, e não repetição.
+3. São necessárias 12 das 22 componentes para 80% da variância — **a
+   integração das três fontes acrescenta informação**, e não repetição.
 
 ### 4.3 Método (2 p) — reescrever no passado
 
@@ -243,7 +259,9 @@ método | validação | integra gestão pública?`); (3) buscar 2 trabalhos novo
 | `.bib` e template SBC | Resolvido — está no Overleaf |
 | **Introdução e Trabalhos Correlatos** | **Não começaram. 5 das ~9 páginas. Maior risco.** |
 | Kernel dos notebooks | 4 Pythons na máquina; o que tem as bibliotecas é `C:\Python314\python.exe`. A 1ª célula imprime `sys.executable` |
-| `StandardScaler` vs `RobustScaler` | Desvio do plano, com evidência no notebook 03. **Confirmem se concordam** — a decisão vale para a clusterização da próxima entrega |
+| `StandardScaler` vs `RobustScaler` | Desvio do plano, com evidência no apêndice 03b. **Confirmem se concordam** — a decisão vale para a clusterização da próxima entrega |
+| `pib_percapita` | Proxy ruim de renda (enclaves: Paulínia, Ilhabela, Louveira, Gavião Peixoto, Queiroz). Fica como feature porque ρ com a renda mediana é 0,41; **caveat obrigatório na Discussão** |
+| `taxa_trafico` | Mede também intensidade de policiamento; caveat na Discussão |
 | `i_planejamento_ord` | 70% dos municípios no mesmo valor. Mantida, mas pede sensibilidade com e sem ela na próxima entrega |
 | `*_conceito` ≠ `*_ord` | Por construção: `_ord` é a média dos 3 exercícios, `_conceito` é a letra do mais recente. Campinas: `B` e `1,667` |
 
@@ -260,6 +278,74 @@ método | validação | integra gestão pública?`); (3) buscar 2 trabalhos novo
 ---
 
 ## 6. Changelog
+
+### [10/09/2026] Revisão cruzada com o artigo — base e notebooks
+
+Implementa as nove tarefas de `REVISAO_BASE_E_NOTEBOOKS.md`. Regra adotada
+em todo o código: cada célula tem que ser explicável em duas frases por
+qualquer membro do grupo; o que não é, vai para função em `src/` ou para
+apêndice.
+
+**Base**
+
+- **Bloco socioeconômico de 2 para 6 features.** Entraram, do Censo 2022 e
+  em nível municipal: `taxa_alfabetizacao` (SIDRA 9543), `renda_domiciliar_mediana`
+  (10295, mediana e não média, por causa dos enclaves), `prop_esgoto_adequado`
+  (6805) e `prop_lixo_coletado` (6892). Nenhum ausente nos 645 municípios.
+  Números de tabela, variável e categoria conferidos na API de metadados e
+  comentados em `config.py`.
+- **`iegm_ord` saiu das features** (papel `contexto`). É composto pelas 7
+  dimensões; ρ = 0,86 com a média delas. Ficam as dimensões, que dizem em
+  qual área de gestão os perfis diferem. Gestão: 8 → 7 features.
+- **`pib_percapita` reavaliado.** Fica como feature por regra automática no
+  `merge_bases.py`: sairia se ρ com a renda mediana passasse de
+  `LIMIAR_REDUNDANCIA` (0,85); mediu 0,41.
+- **Dicionário corrigido, com números recalculados a cada execução:**
+  `taxa_recuperacao_veiculo` vira `contexto` e a descrição diz que a razão
+  passa de 1 em 477 de 601 municípios porque inclui veículos subtraídos em
+  outros municípios — não mede efetividade; `prop_noturno` e
+  `cobertura_periodo` trazem a cobertura real da janela (mediana 20%), no
+  lugar do "~42% em 2026".
+- Base final: 645 × **54** colunas; **22** features (9 + 6 + 7). Pesos:
+  0,333 / 0,408 / 0,378.
+
+**Notebooks**
+
+- `src/figuras.py`, novo: uma função por figura, com docstring dizendo o
+  que a figura mostra. Nos notebooks, célula de figura = preparar dado +
+  chamar + `salvar`. Nenhum `ax.text` posicionado à mão em notebook.
+- `src/estilo.py` reduzido a `plt.style.use("seaborn-v0_8-whitegrid")`,
+  `rcParams` mínimos e `salvar()`. Cores: `RdBu`, `Blues`, `C0`/`C1`. A
+  discussão de ΔE/daltonismo saiu do código.
+- `02_exploratoria` ganhou a **seção 0 de primeiro contato**: `info()`,
+  ausentes, `describe()` por bloco, histograma da população em log,
+  boxplots das taxas, top-10 de CVLI e de roubo, distribuição das notas do
+  IEGM. Só depois vêm Tabela 2, `log1p` e Spearman.
+- `03_preprocessamento` reescrito com `ColumnTransformer` + `Pipeline` do
+  `sklearn`: 75 linhas de código. Conferido com `assert_frame_equal` que a
+  matriz é idêntica ao cálculo manual.
+- `03b_apendice_escalonadores`, novo: a comparação A/B/C que justifica o
+  `StandardScaler`, fora do pipeline.
+- Seleção das taxas criminais passou a ser pelo bloco do dicionário, não
+  pelo prefixo `taxa_` — que agora também casaria com `taxa_alfabetizacao`.
+
+**Números que mudaram (22 features)**
+
+- Spearman: continua sem par acima de 0,85; máximo 0,763.
+- Orçamento sem peso: 40,9 / 27,3 / 31,8 (era 47,4 / 10,5 / 42,1).
+- Componentes para 80%: **12** de 22 (era 9 de 19). PC1: 24,6% (era 27,5%).
+- `RobustScaler`: PC2 dominada por `i_planejamento_ord` com carga 0,93.
+
+**Documentação**
+
+- Peso `1/√n` ancorado na Análise Fatorial Múltipla (Escofier e Pagès,
+  1994), com a diferença explicada e entrada BibTeX no README.
+- README lista os indicadores do IBGE em tabela, com tabela SIDRA e ano.
+
+**Removido**
+
+- `src/__pycache__/` e `data/processed/.gitkeep` (a pasta tem arquivos
+  versionados).
 
 ### [07/09/2026] Fase 3 — pré-processamento, e uma decisão revista
 

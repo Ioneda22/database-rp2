@@ -1,44 +1,17 @@
 """
-Leitura e limpeza da base do IEGM (TCE-SP).
+Lê as planilhas do IEGM (TCE-SP) e monta uma linha por município.
 
-O QUE ESTES ARQUIVOS SÃO (verificado nos arquivos reais de `data/raw/ieg-m/`):
+Sobre esses arquivos:
+- São .xls antigo, então usamos xlrd (openpyxl não abre).
+- As notas vêm como letra (A, B+, B, C+, C). Convertemos para 1 a 5.
+- Só têm 644 municípios: a capital não entra, porque é fiscalizada pelo
+  TCM-SP e não pelo TCE-SP.
+- O nome do arquivo não diz o ano. O que vale é a coluna exercicio_ref.
 
-  - Formato OLE2 legado (BIFF, assinatura D0CF11E0), NÃO xlsx. `openpyxl` não
-    lê; é preciso `xlrd` (usamos a API do xlrd diretamente para não depender
-    da versão do pandas).
-  - Uma planilha por EXERCÍCIO, aba única, 644 municípios cada.
-  - Colunas:
-        exercicio_ref | ano_apuracao | codigo_municipio | nome | iegm
-        iplanejamento | ifiscal | ieduc | isaude | iamb | icidade | igov
-
-TRÊS COISAS QUE QUEBRAM QUEM ASSUME O CONTRÁRIO:
-
-  1. TODAS as notas -- a geral e as 7 dimensões -- vêm como CONCEITO em letra
-     (A, B+, B, C+, C), nunca como número. Aplicar `pd.to_numeric` nelas
-     transforma a base inteira em NaN. Convertemos as 8 pela escala ordinal
-     de config.ESCALA_ORDINAL_IEGM.
-  2. Há 644 municípios, não 645: falta a CAPITAL (código 3550308). São Paulo
-     é fiscalizada pelo TCM-SP, não pelo TCE-SP, e por isso nunca aparece no
-     IEGM. Como o desenho da pesquisa usa o IEGM como variável de
-     clusterização, a capital fica necessariamente fora da base de modelagem
-     -- a base final marca isso em `flag_sem_iegm`.
-  3. O NOME DO ARQUIVO NÃO DIZ O EXERCÍCIO. Em disco, `ieg_m_2025.xls` é o
-     exercício 2022. O que vale é a coluna `exercicio_ref` de dentro da
-     planilha; este módulo lê todos os `.xls` do diretório e se orienta por
-     ela.
-
-POR QUE A MÉDIA DE VÁRIOS EXERCÍCIOS. Cada exercício isolado é um ponto único
-com 4-5 níveis e distribuição muito concentrada: no exercício 2024,
-`iplanejamento` tem 533 dos 644 municípios (83%) no conceito 'C'. Padronizada,
-essa coluna carrega quase nenhuma informação e ainda consome orçamento de
-distância no K-means. Com os três exercícios em disco (2022, 2023 e 2024,
-apurados em 2023, 2024 e 2025 -- a MESMA janela do crime), a média ordinal
-alinha o bloco de gestão à janela da criminalidade e transforma 5 níveis
-possíveis em até 13, o que devolve variância ao bloco sem inventar nada.
-
-`*_ord` é, portanto, a média dos exercícios disponíveis; `*_conceito` guarda
-a letra do exercício MAIS RECENTE, como rótulo legível. Os dois não são mais
-equivalentes entre si -- está registrado no dicionário da base.
+Nas colunas *_ord usamos a média dos exercícios disponíveis (2022, 2023 e
+2024). Um exercício sozinho tem poucos valores diferentes; com a média a
+coluna ganha mais variação. As colunas *_conceito guardam a letra do
+exercício mais recente, só para leitura.
 """
 from __future__ import annotations
 
@@ -51,7 +24,7 @@ from config import IEGM_DIR, IEGM_GLOB, ESCALA_ORDINAL_IEGM, COLUNAS_IEGM
 
 
 def _ler_planilha(caminho: Path) -> pd.DataFrame:
-    """Lê um exercício do IEGM em formato longo (um município por linha)."""
+    """Lê uma planilha (um exercício) e devolve um município por linha."""
     livro = xlrd.open_workbook(str(caminho))
     aba = livro.sheet_by_index(0)
     cabecalho = [str(c).strip().lower() for c in aba.row_values(0)]
@@ -67,7 +40,7 @@ def _ler_planilha(caminho: Path) -> pd.DataFrame:
             "Se o TCE-SP mudou o layout, ajuste COLUNAS_IEGM em config.py."
         )
 
-    # xlrd devolve todo número como float: 3500105.0 -> "3500105"
+    # O xlrd lê os números como float: 3500105.0 vira "3500105".
     saida = pd.DataFrame({
         "codigo_ibge": df["codigo_municipio"].astype(float).astype(int)
                                              .astype(str),
@@ -93,10 +66,10 @@ def _ler_planilha(caminho: Path) -> pd.DataFrame:
 
 def carregar_iegm(diretorio: Path = IEGM_DIR) -> pd.DataFrame:
     """
-    Consolida todos os exercícios do IEGM em uma linha por município.
+    Junta todos os exercícios do IEGM em uma linha por município.
 
-    `*_ord`      -> média dos exercícios encontrados
-    `*_conceito` -> conceito do exercício mais recente (rótulo)
+    *_ord      -> média dos exercícios encontrados
+    *_conceito -> letra do exercício mais recente
     """
     arquivos = sorted(Path(diretorio).glob(IEGM_GLOB))
     if not arquivos:
@@ -131,7 +104,7 @@ def carregar_iegm(diretorio: Path = IEGM_DIR) -> pd.DataFrame:
 
     saida = rotulos.merge(medias, on="codigo_ibge", how="outer")
 
-    # Metadado da janela do IEGM: guarda o intervalo, não um ano único.
+    # Guarda o intervalo de anos como texto, ex.: "2022-2024".
     def intervalo(serie: pd.Series) -> str:
         v = sorted(serie.dropna().astype(int).unique())
         return str(v[0]) if len(v) == 1 else f"{v[0]}-{v[-1]}"

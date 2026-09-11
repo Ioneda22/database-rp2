@@ -1,60 +1,29 @@
 """
-Leitura e agregação das bases de criminalidade da SSP-SP.
+Lê os arquivos da SSP-SP e agrega as ocorrências por município, ano e mês.
 
-O QUE ESTES ARQUIVOS SÃO (verificado nos arquivos reais de 2023, 2024 e 2025):
-  Os exports da SSP são MICRODADOS -- uma linha por boletim de ocorrência x
-  pessoa x natureza x objeto --, e não uma tabela já agregada por município.
-  Não existe coluna "quantidade": a contagem é o número de linhas do grupo.
+Sobre os arquivos:
+- Cada linha é uma pessoa, natureza ou objeto de um boletim, não um boletim
+  inteiro. Não existe coluna de quantidade: a contagem é o número de linhas.
+- SPDadosCriminais_<ano>.xlsx tem 1 aba de dicionário e 2 abas de dados
+  (JAN-JUN e JUL-DEZ). Veículos e celulares têm 1 aba de dados.
+- Os nomes das colunas mudam de um ano para o outro. Por exemplo, o código
+  do município é CD_IBGE em 2023-2025 e COD IBGE em 2026. Por isso cada
+  campo tem uma lista de nomes possíveis (APELIDOS_*). Se a SSP mudar um
+  nome, basta acrescentar na lista.
+- Usamos o município de circunscrição (onde o fato aconteceu), que é o
+  CD_IBGE, e não o município onde o BO foi registrado.
 
-  `SPDadosCriminais_<ano>.xlsx`  -> 1 aba de dicionário + 2 abas de dados
-                                    (JAN-JUN_<ano>, JUL-DEZ_<ano>)
-  `VeiculosSubtraidos_<ano>.xlsx`, `CelularesSubtraidos_<ano>.xlsx`
-                                 -> METODOLOGIA + DICIONARIO DE DADOS + 1 aba
-                                    de dados
+Lemos os .xlsx linha a linha com openpyxl porque os arquivos têm até
+200 MB. Carregar tudo com pandas.read_excel gasta memória demais.
 
-OS NOMES DAS COLUNAS MUDAM DE ANO PARA ANO. Esta é a principal armadilha da
-base, e por isso toda coluna é resolvida por uma LISTA DE APELIDOS
-(`_indices`), nunca por um nome fixo:
-
-  - `CD_IBGE` em 2023-2025; `COD IBGE` no export de 2026. A aba de dicionário
-    documenta "COD IBGE" nos três anos, mas o cabeçalho real da aba de dados
-    é `CD_IBGE`. Como as abas de dados são descobertas pelo conteúdo do
-    cabeçalho, um nome errado aqui não dá erro: dá painel VAZIO.
-  - `DESCR_TIPOLOCAL` só existe em 2025. Em 2023 e 2024 há apenas
-    `DESCR_SUBTIPOLOCAL`. Usamos `DESCR_SUBTIPOLOCAL` nos TRÊS anos: uma
-    definição consistente ao longo da janela vale mais do que casar com o
-    TIPOLOCAL de 2025 -- misturar as duas criaria um degrau artificial entre
-    2024 e 2025 em `prop_via_publica`, que é justamente a variável de
-    validação externa do desenho. (As duas não são equivalentes: numa amostra
-    de 4.000 linhas de 2025, TIPOLOCAL="Via Pública" em 2.333 e
-    SUBTIPOLOCAL="Via Pública" em 2.118.)
-  - Veículos e celulares: `ANO`/`MES` em 2023-2024, `ANO_REGISTRO_BO`/
-    `MES_REGISTRO_BO` em 2025.
-
-QUAL MUNICÍPIO: usamos `CD_IBGE`, que corresponde ao município de
-CIRCUNSCRIÇÃO (local do fato) -- o correto para taxa de criminalidade. A aba
-METODOLOGIA da própria SSP avisa que "cerca de 60% das ocorrências são
-registradas fora de sua circunscrição", então registro != local do fato não é
-detalhe. `agregar_criminais` VERIFICA essa correspondência em tempo de
-execução e imprime o resultado.
-
-POR QUE openpyxl EM STREAMING E NÃO pandas.read_excel: os arquivos têm 66 a
-208 MB e até 623 mil linhas por aba. `read_excel` carrega a aba inteira em
-memória; aqui percorremos linha a linha acumulando contadores, o que mantém o
-uso de memória constante.
-
-Saídas (camada intermediária, em data/processed/):
+Saídas em data/processed/:
   ssp_painel.csv       codigo_ibge, ano, mes, natureza, ocorrencias
-  ssp_textura.csv      codigo_ibge, ano, contagens de local/período
-  ssp_complementar.csv codigo_ibge, ano, veículos e celulares subtraídos
-  ssp_cobertura.csv    ano, n_meses
+  ssp_textura.csv      codigo_ibge, ano, contagens de local e período
+  ssp_complementar.csv codigo_ibge, ano, veículos e celulares
+  ssp_cobertura.csv    ano, quantos meses tem
 
-O painel é MENSAL de propósito, mesmo que a base final seja anual: mês é um
-superconjunto barato (o `merge_bases.py` soma sobre ele sem saber que existe)
-e é o que viabiliza a validação da janela temporal -- a série mensal estadual
-que detecta o degrau da migração R.D.O. -> S.P.J. Sem isso, cada pergunta
-sobre sazonalidade ou quebra de série custaria reprocessar 5 milhões de
-linhas de novo.
+O painel é mensal para permitir a série mensal do notebook 01. A base final
+soma os meses de cada ano.
 """
 from __future__ import annotations
 
@@ -73,41 +42,38 @@ from config import (
 
 
 def normaliza(txt) -> str:
-    """Maiúsculo, sem acento, espaços colapsados -- para comparar rótulos."""
+    """Deixa o texto em maiúsculas, sem acento e sem espaços repetidos."""
     txt = str(txt).strip().upper()
     txt = unicodedata.normalize("NFKD", txt).encode("ascii", "ignore").decode()
     return re.sub(r"\s+", " ", txt)
 
 
 # ---------------------------------------------------------------------------
-# Resolução de colunas por apelido
+# Nomes possíveis de cada coluna
 # ---------------------------------------------------------------------------
 #
-# Cada campo lógico mapeia para a LISTA de grafias já vistas nos arquivos, em
-# ordem de preferência. Acrescente aqui quando a SSP renomear algo -- é o
-# único lugar que precisa mudar.
+# Para cada campo, a lista de nomes que já apareceram nos arquivos, em ordem
+# de preferência. Quando a SSP renomear uma coluna, é só acrescentar aqui.
 
 APELIDOS_CRIMINAIS = {
     "cod_ibge":  ["CD_IBGE", "COD IBGE"],
     "ano":       ["ANO_ESTATISTICA"],
     "mes":       ["MES_ESTATISTICA"],
     "natureza":  ["NATUREZA_APURADA"],
-    # Ver a nota do cabeçalho: SUBTIPOLOCAL em todos os anos, de propósito.
+    # DESCR_TIPOLOCAL só existe em 2025. Usamos SUBTIPOLOCAL em todos os anos
+    # para a definição de "via pública" ser a mesma na janela inteira.
     "local":     ["DESCR_SUBTIPOLOCAL"],
     "periodo":   ["DESC_PERIODO", "DESCR_PERIODO"],
-    # Só para as verificações de integridade, não entram na agregação:
+    # Estes só servem para as conferências; não entram na agregação.
     "delegacia": ["NOME_DELEGACIA"],
     "num_bo":    ["NUM_BO"],
     "ano_bo":    ["ANO_BO"],
     "mun_reg":   ["NOME_MUNICIPIO", "CIDADE"],
     "mun_circ":  ["NOME_MUNICIPIO_CIRCUNSCRIÇÃO", "NOME_MUNICIPIO_CIRCUNCRIÇÃO"],
 }
-# `CIDADE` e `DESCR_PERIODO` são as grafias de 2022. Confirmadas contra a aba
-# CAMPOS_DA_TABELA_SPDADOS daquele arquivo, que lista 29 campos na mesma ordem
-# das 29 colunas da aba de dados: a posição 4 é documentada como
-# "NOME_MUNICIPIO | Município de registro" e traz `CIDADE`; a posição 10 é
-# "DESC_PERIODO | Período da ocorrência" e traz `DESCR_PERIODO`. Como em
-# 2023-2025 não existe coluna `CIDADE`, a ordem dos apelidos resolve sozinha.
+# CIDADE e DESCR_PERIODO são os nomes usados no arquivo de 2022. Conferimos
+# pela aba de dicionário desse arquivo, que lista os campos na mesma ordem
+# das colunas.
 
 APELIDOS_VEICULOS = {
     "cod_ibge": ["CD_IBGE", "COD IBGE"],
@@ -126,12 +92,8 @@ APELIDOS_CELULARES = {
 def _indices(cabecalho: list, apelidos: dict[str, list[str]],
              obrigatorias: list[str]) -> dict[str, int | None]:
     """
-    Mapeia campo lógico -> posição na linha, tolerando acento/caixa/espaços e
-    aceitando qualquer uma das grafias listadas em `apelidos`.
-
-    Campos fora de `obrigatorias` que não forem encontrados viram None -- é
-    assim que `DESCR_TIPOLOCAL` (ausente em 2023-2024) deixa de ser um crash e
-    vira uma coluna opcional.
+    Descobre em qual posição da linha está cada campo, aceitando qualquer
+    um dos nomes da lista. Campos opcionais que não existirem viram None.
     """
     posicoes = {}
     for i, c in enumerate(cabecalho):
@@ -158,12 +120,9 @@ def _indices(cabecalho: list, apelidos: dict[str, list[str]],
 def _abas_de_dados(wb, apelidos: dict[str, list[str]],
                    marcadores: list[str]) -> list[str]:
     """
-    Descobre quais abas são de dados olhando o CONTEÚDO do cabeçalho, e não o
-    nome da aba -- os nomes mudam de ano para ano (JAN-JUN_2023, CELULAR_2025,
-    VEICULOS_2024...) e as primeiras abas são metodologia/dicionário.
-
-    Uma aba qualifica quando, para CADA campo em `marcadores`, pelo menos uma
-    das grafias aceitas está presente.
+    Descobre quais abas têm dados olhando o cabeçalho, e não o nome da aba
+    (o nome muda de ano para ano). Uma aba serve se tiver todos os campos
+    de `marcadores`.
     """
     abas = []
     for nome in wb.sheetnames:
@@ -180,13 +139,12 @@ def _abas_de_dados(wb, apelidos: dict[str, list[str]],
 
 
 def _mil(n: int) -> str:
-    """1241911 -> '1.241.911'. Só o número: aplicar .replace(',', '.') na
-    f-string inteira também trocaria as vírgulas do texto em volta."""
+    """Formata 1241911 como '1.241.911'."""
     return f"{n:,}".replace(",", ".")
 
 
 def _cod_ibge(valor) -> str | None:
-    """Normaliza o código IBGE para string de 7 dígitos, ou None se inválido."""
+    """Devolve o código IBGE como texto de 7 dígitos, ou None se inválido."""
     if valor is None:
         return None
     txt = str(valor).strip()
@@ -198,13 +156,12 @@ def _cod_ibge(valor) -> str | None:
 
 
 # ---------------------------------------------------------------------------
-# 1. Base principal: SPDadosCriminais
+# 1. Arquivo principal: SPDadosCriminais
 # ---------------------------------------------------------------------------
 
-# DESC_PERIODO tem taxa alta de "NULL" (~60% em 2023, ~83% em 2025), então
-# `prop_noturno` é calculada apenas sobre os registros de período conhecido --
-# e a base carrega `cobertura_periodo` junto, para julgar se é utilizável.
-# "Em hora incerta" não é nem diurno nem noturno: fica fora dos dois.
+# O período fica vazio na maior parte das linhas. Por isso prop_noturno é
+# calculada só sobre as linhas com período preenchido, e a base guarda a
+# cobertura para avisar. "Em hora incerta" não entra em nenhum dos dois.
 PERIODOS_NOTURNOS = {"A NOITE", "DE MADRUGADA"}
 PERIODOS_DIURNOS = {"PELA MANHA", "A TARDE"}
 
@@ -213,12 +170,11 @@ def agregar_criminais(
     diretorio: Path = SSP_DIR,
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """
-    Percorre todos os SPDadosCriminais_*.xlsx e devolve (painel, textura,
+    Lê todos os SPDadosCriminais_*.xlsx e devolve (painel, textura,
     cobertura).
 
-    O ano usado é ANO_ESTATISTICA (mês/ano de entrada na estatística oficial),
-    não ANO_BO -- há boletins registrados num ano sobre fatos de anos
-    anteriores, e a SSP contabiliza pela estatística.
+    O ano é o ANO_ESTATISTICA (quando a ocorrência entrou na estatística),
+    e não o ANO_BO, porque é assim que a SSP conta.
     """
     arquivos = sorted(diretorio.glob(SSP_CRIMINAIS_GLOB))
     if not arquivos:
@@ -228,14 +184,12 @@ def agregar_criminais(
             "https://www.ssp.sp.gov.br/estatistica/consultas"
         )
 
-    contagem = Counter()                    # (cod, ano, natureza) -> n
+    contagem = Counter()                    # (cod, ano, mes, natureza) -> n
     textura = defaultdict(Counter)          # (cod, ano) -> contadores
-    meses = defaultdict(set)                # ano -> {meses observados}
-    circunscricao = defaultdict(set)        # cod -> {nomes de circunscrição}
-    por_nome = defaultdict(set)             # nome de REGISTRO -> {códigos}
-    # Por ano, e não no agregado: o painel cobre anos fora da janela de
-    # modelagem, e uma taxa global misturaria os dois. Os números que vão
-    # para a Metodologia são os dos anos da janela.
+    meses = defaultdict(set)                # ano -> meses que apareceram
+    circunscricao = defaultdict(set)        # cod -> nomes de circunscrição
+    por_nome = defaultdict(set)             # nome de registro -> códigos
+    # Contados por ano, porque o painel tem anos fora da janela (2022).
     fora_circunscricao = Counter()          # ano -> linhas registro != fato
     linhas_ano = Counter()                  # ano -> linhas válidas
     descartadas = 0
@@ -273,10 +227,8 @@ def agregar_criminais(
                 ano = int(row[i_ano])
                 chave = (cod, ano)
                 natureza = normaliza(row[i_nat])
-                # mes = 0 quando MES_ESTATISTICA vem vazio. A ocorrência NÃO
-                # é descartada: ela ainda conta no total anual, que é o que
-                # alimenta as taxas. Quem faz série mensal é que filtra
-                # `mes > 0` (ver notebook de validação temporal).
+                # Se o mês estiver vazio, fica 0. A linha continua contando
+                # no total do ano; só a série mensal filtra mes > 0.
                 mes = int(row[i_mes]) if row[i_mes] is not None else 0
                 contagem[(cod, ano, mes, natureza)] += 1
 
@@ -295,15 +247,13 @@ def agregar_criminais(
                 if mes:
                     meses[ano].add(mes)
 
-                # --- verificações de integridade ---
+                # --- conferências ---
                 linhas_ano[ano] += 1
                 if i_mcirc is not None:
                     nome_circ = str(row[i_mcirc]).strip()
                     circunscricao[cod].add(nome_circ)
-                    # .strip() nos DOIS lados: o campo `CIDADE` de 2022 vem
-                    # preenchido com espaços à direita ('S.PAULO           '),
-                    # e a comparação crua contaria isso como uma ocorrência
-                    # registrada fora da circunscrição.
+                    # strip() dos dois lados: em 2022 o campo CIDADE vem com
+                    # espaços no fim e a comparação daria diferente à toa.
                     if i_mreg is not None:
                         if str(row[i_mreg]).strip() != nome_circ:
                             fora_circunscricao[ano] += 1
@@ -318,10 +268,9 @@ def agregar_criminais(
             print(f"    aba {aba!r}: {_mil(n_aba)} linhas")
         wb.close()
 
-        # Cada linha é uma pessoa/natureza/objeto do boletim (ver METODOLOGIA
-        # da SSP), então contar linhas só é contar ocorrências se as
-        # repetições de (BO, natureza) forem desprezíveis. Medimos, não
-        # supomos.
+        # Como cada linha é uma pessoa/natureza/objeto, contar linhas só dá
+        # certo se quase não houver repetição de (BO, natureza). Aqui a gente
+        # mede isso em vez de supor.
         if chaves_bo:
             dup = linhas_arq - len(chaves_bo)
             print(f"    {_mil(linhas_arq)} linhas / {_mil(len(chaves_bo))} "
@@ -334,22 +283,13 @@ def agregar_criminais(
         print(f"  [aviso] {descartadas} linha(s) descartada(s) por "
               "CD_IBGE/ano ausente.")
 
-    # As duas direções da junção, que sustentam a decisão de casar por
-    # `codigo_ibge` e nunca por nome:
-    #
-    #   código -> nome  deve ser 1:1. Um código com dois nomes pode ser só
-    #   variação de grafia ("S.ANTONIO DA ALEGRIA" / "SANTO ANTONIO DA
-    #   ALEGRIA"), que é inofensiva, ou dois municípios de fato, que
-    #   invalidaria as taxas. O script lista os casos para julgamento humano
-    #   em vez de decidir sozinho.
-    #
-    #   NOME_MUNICIPIO (registro) -> código  NÃO é 1:1, e é exatamente por
-    #   isso que não se casa por nome. Cuidado com a leitura: a causa
-    #   principal não é grafia ambígua, é que o município de REGISTRO não
-    #   determina o município do FATO -- a mesma delegacia registra
-    #   ocorrências de várias circunscrições. Casar por esse nome atribuiria
-    #   o crime à cidade onde o BO foi feito. Este número vai para a
-    #   Metodologia do artigo.
+    # Conferência da chave de junção:
+    # - cada código deve ter um nome só. Se tiver dois, pode ser só grafia
+    #   diferente (ex.: "S.ANTONIO" e "SANTO ANTONIO"); o script lista para
+    #   a gente conferir.
+    # - o nome do município de registro aponta para vários códigos, porque o
+    #   BO pode ser feito numa cidade e o fato ter ocorrido em outra. É por
+    #   isso que não juntamos por nome.
     varios_nomes = {c: n for c, n in circunscricao.items() if len(n) > 1}
     print(f"  CD_IBGE -> município de circunscrição: {len(circunscricao)} "
           f"códigos, {len(varios_nomes)} com mais de uma grafia")
@@ -393,23 +333,21 @@ def agregar_criminais(
 
 
 # ---------------------------------------------------------------------------
-# 2. Bases complementares: veículos e celulares
+# 2. Arquivos de veículos e celulares
 # ---------------------------------------------------------------------------
 #
-# ATENÇÃO conceitual: os BOs destes dois arquivos JÁ ESTÃO contabilizados em
-# SPDadosCriminais como FURTO - OUTROS / ROUBO - OUTROS / FURTO DE VEÍCULO
-# etc. Somar as contagens daqui como se fossem crimes adicionais seria dupla
-# contagem. Por isso extraímos apenas o que é informação NOVA -- composição e
-# desfecho -- que vira razão (proporção) na base final:
-#   - taxa de recuperação de veículos  -> efetividade institucional
-#   - participação de motocicletas     -> perfil da frota subtraída
-#   - participação de celulares        -> crime patrimonial urbano de rua
+# Os BOs desses arquivos já estão contados no SPDadosCriminais (como furto,
+# roubo etc.). Somar de novo seria contar duas vezes. Daqui tiramos só o que
+# é informação nova, em forma de proporção:
+#   - veículos localizados / subtraídos
+#   - participação de motos entre os veículos subtraídos
+#   - participação de celulares nas ocorrências
 
 MOTOS = {"MOTOCICLO", "MOTONETA", "CICLOMOTO"}
 
 
 def agregar_complementares(diretorio: Path = SSP_DIR) -> pd.DataFrame:
-    """Agrega VeiculosSubtraidos_* e CelularesSubtraidos_* por município/ano."""
+    """Agrega VeiculosSubtraidos_* e CelularesSubtraidos_* por município e ano."""
     acc = defaultdict(Counter)   # (cod, ano) -> contadores
 
     # --- veículos ---
@@ -427,7 +365,7 @@ def agregar_complementares(diretorio: Path = SSP_DIR) -> pd.DataFrame:
                 cod = _cod_ibge(row[idx["cod_ibge"]])
                 ano = row[idx["ano"]]
                 desfecho = row[idx["desfecho"]]
-                # Alguns exports trazem linhas totalmente vazias no fim.
+                # Alguns arquivos têm linhas vazias no final.
                 if cod is None or ano is None or desfecho is None:
                     vazias += 1
                     continue
@@ -438,7 +376,7 @@ def agregar_complementares(diretorio: Path = SSP_DIR) -> pd.DataFrame:
                 elif d == "ROUBADO":
                     acc[chave]["veic_roubado"] += 1
                 elif d.startswith("LOCALIZADO"):
-                    # "Localizado / Entregue" é RECUPERAÇÃO, não crime.
+                    # "Localizado / Entregue" é veículo recuperado, não crime.
                     acc[chave]["veic_localizado"] += 1
                 if d in ("FURTADO", "ROUBADO"):
                     acc[chave]["veic_subtraido"] += 1
@@ -465,7 +403,7 @@ def agregar_complementares(diretorio: Path = SSP_DIR) -> pd.DataFrame:
                 if cod is None or ano is None:
                     continue
                 rubrica = normaliza(row[idx["rubrica"]])
-                # 'Perda/Extravio' não é crime.
+                # "Perda/Extravio" não é crime.
                 if rubrica.startswith("FURTO"):
                     acc[(cod, int(ano))]["cel_furto"] += 1
                 elif rubrica.startswith("ROUBO"):

@@ -156,21 +156,69 @@ API. Por isso a janela 2023–2025 usa **a população de 2024 como referência
 `taxa_urbanizacao` vem da tabela **9923** (Censo 2022), não da 202. A 202 é do
 Censo antigo e seus períodos publicados param em **2010**; pedir
 `period="last"` nela devolve o Censo 2010 **sem erro nenhum** — 15 anos de
-defasagem numa das duas únicas features do bloco socioeconômico.
+defasagem numa feature do bloco socioeconômico.
+
+### Indicadores do IBGE (todos automáticos, via `ibge_sidra.py`)
+
+| Coluna | Tabela SIDRA | O que é | Ano |
+|---|---|---|---|
+| `populacao` | 6579 | população residente estimada (denominador das taxas) | 2024 |
+| `pib_percapita` | 5938 | PIB total ÷ população de referência | PIB 2023 |
+| `taxa_urbanizacao` | 9923 | % da população em domicílio urbano | Censo 2022 |
+| `taxa_alfabetizacao` | 9543 | % de pessoas de 15 anos ou mais alfabetizadas | Censo 2022 |
+| `renda_domiciliar_mediana` | 10295 | rendimento domiciliar per capita mediano (R$) | Censo 2022 |
+| `prop_esgoto_adequado` | 6805 | % de domicílios com rede geral ou fossa séptica | Censo 2022 |
+| `prop_lixo_coletado` | 6892 | % de domicílios com lixo coletado | Censo 2022 |
+
+Os quatro últimos entraram em 10/09/2026. Motivo: PIB per capita e
+urbanização sozinhos não representam "vulnerabilidade socioeconômica", e a
+introdução do artigo fala em escolaridade e renda. Os números de tabela,
+variável e categoria foram conferidos na API de metadados e estão
+comentados em `config.py`.
+
+**`pib_percapita` é proxy ruim de renda das famílias.** Os cinco maiores
+valores são Paulínia, Ilhabela, Louveira, Gavião Peixoto e Queiroz: enclaves
+industriais ou municípios minúsculos com uma usina. Ele continua como
+feature porque a correlação com a renda mediana é baixa (o
+`merge_bases.py` mede e imprime o valor; a regra é: se passasse de
+`LIMIAR_REDUNDANCIA`, ficaria só a renda). O caveat dos enclaves vai para
+a Discussão do artigo.
 
 ## Notas para a modelagem
 
 O `dicionario_base.csv` diz o bloco e o papel de cada coluna. Leiam ele em vez
 de listar colunas na mão — é o que permite:
 
-1. **Pesar os blocos.** São 19 features: 9 de criminalidade, 2 de
-   socioeconômico e 8 de gestão. Sem peso, cada bloco influencia a distância
-   na proporção do nº de colunas que a fonte por acaso tem — o IEGM levaria
-   ~40% do orçamento. Sugestão: peso `1/sqrt(n)` por bloco (0,333 / 0,707 /
-   0,354, calculados no `relatorio_base.txt`).
-2. **Transformar.** `log1p` nas taxas e no PIB per capita (fortemente
-   assimétricos), depois `RobustScaler` — **ajustado só no subconjunto
-   efetivamente clusterizado**, e não na base inteira.
+1. **Pesar os blocos.** São 22 features: 9 de criminalidade, 6 de
+   socioeconômico e 7 de gestão. Sem peso, cada bloco influencia a distância
+   na proporção do nº de colunas que a fonte por acaso tem. Peso `1/√n` por
+   bloco, simplificação da ponderação por grupo da **Análise Fatorial
+   Múltipla** [Escofier e Pagès 1994]: a AFM divide cada bloco pelo seu
+   primeiro autovalor, para que nenhum grupo domine por ter mais variáveis;
+   aqui divide-se por `√n`, que dá o mesmo resultado quando cada coluna tem
+   variância 1 — o que o `StandardScaler` garante. Os pesos são calculados
+   no `relatorio_base.txt`.
+
+   Entrada para o `.bib` do Overleaf:
+
+   ```bibtex
+   @article{escofier1994,
+     author  = {Escofier, Brigitte and Pag{\`e}s, J{\'e}r{\^o}me},
+     title   = {Multiple factor analysis ({AFMULT} package)},
+     journal = {Computational Statistics \& Data Analysis},
+     volume  = {18},
+     number  = {1},
+     pages   = {121--140},
+     year    = {1994}
+   }
+   ```
+2. **Transformar.** `log1p` nas taxas criminais e nas variáveis em reais
+   (PIB per capita e renda mediana), que têm cauda longa à direita; depois
+   `StandardScaler`, **ajustado só no subconjunto efetivamente
+   clusterizado**. Não é `RobustScaler`, como o plano previa: ele divide
+   pelo IQR, e o IQR de `i_planejamento_ord` é 0,33 — a coluna fica
+   multiplicada por três e vira sozinha uma componente principal. A
+   comparação está no apêndice `notebooks/03b_apendice_escalonadores.ipynb`.
 3. **Segurar variáveis de validação externa.** `papel = validacao_externa`
    marca `prop_via_publica`, propositalmente fora das features, para que os
    testes da seção 3.4 não sejam circulares. Nas variáveis que *entraram* na
@@ -185,8 +233,19 @@ de listar colunas na mão — é o que permite:
 5. **Ausentes.** Só 44 municípios (6,8%) têm `taxa_recuperacao_veiculo` e
    `prop_veiculo_motocicleta` nulos — são os que não tiveram nenhum veículo
    subtraído em três anos, então o `NaN` é a resposta correta, não uma falha
-   de coleta. As 8 colunas do IEGM faltam só na capital (`flag_sem_iegm`).
+   de coleta. As colunas do IEGM faltam só na capital (`flag_sem_iegm`).
    Nenhuma outra coluna tem ausente.
+6. **`iegm_ord` não é feature.** O índice geral é calculado a partir das 7
+   dimensões; usar os dois seria contar a mesma coisa duas vezes (ρ = 0,86
+   entre `iegm_ord` e a média das dimensões, medido na revisão de 10/09).
+   Ficam as dimensões, porque dizem em qual área de gestão os perfis
+   diferem. O índice geral continua na base como `contexto`, para descrever
+   os perfis depois.
+7. **`taxa_recuperacao_veiculo` não mede efetividade institucional.** A
+   razão localizados/subtraídos passa de 1 na maioria dos municípios, porque
+   o veículo roubado numa cidade é localizado em outra. Está na base como
+   `contexto`, com a descrição corrigida no dicionário (o número de
+   municípios acima de 1 é recalculado a cada execução).
 
 ## 4. Análise, em notebooks
 
@@ -194,7 +253,15 @@ de listar colunas na mão — é o que permite:
 notebooks/01_validacao_temporal.ipynb   Fase 1 — Figura 1
 notebooks/02_exploratoria.ipynb         Fase 2 — Tabela 2 e Figura 2
 notebooks/03_preprocessamento.ipynb     Fase 3 — Figura 3 + matriz_modelagem.csv
+notebooks/03b_apendice_escalonadores.ipynb   por que StandardScaler e não RobustScaler
 ```
+
+As figuras são desenhadas por funções em `src/figuras.py` (uma função por
+figura, com docstring dizendo o que a figura mostra). Nos notebooks, cada
+célula de figura é: preparar o dado, chamar a função, `salvar`. O notebook
+02 começa com uma seção de primeiro contato com a base (`info()`,
+`describe()` por bloco, histograma da população, boxplots das taxas, top-10
+e distribuição das notas do IEGM) antes de qualquer transformação.
 
 Todos rodam sobre `data/processed/`; nenhum reprocessa microdado. As figuras
 saem em `figuras/`, prontas para subir no Overleaf.
@@ -214,8 +281,9 @@ seguintes. As duas únicas naturezas que destoam são `cvli` e `estupro_total`
 hipótese de artefato de migração previria.
 
 **Conclusão da Fase 2:** nenhum par de features passa de |ρ| > 0,85 (máximo
-0,76, `roubo_outros × roubo_veiculo`), então **as 19 features seguem inteiras**
-— não há poda. E `log1p` deve ser mantido: a assimetria negativa que ele
+0,76, `roubo_outros × roubo_veiculo`), então **as 22 features seguem inteiras**
+— não há poda. Dentro do bloco socioeconômico, urbanização, coleta de lixo e
+esgoto se correlacionam entre 0,6 e 0,75, também abaixo do limiar. E `log1p` deve ser mantido: a assimetria negativa que ele
 parece introduzir é zero-inflação reaparecendo, não excesso de correção
 (retirando os zeros, toda assimetria pós-`log1p` cai para a faixa −0,5 a
 +0,7).
@@ -224,11 +292,12 @@ parece introduzir é zero-inflação reaparecendo, não excesso de correção
 `RobustScaler` como o plano previa. O peso `1/√n` por bloco é deduzido supondo
 que cada coluna padronizada valha uma unidade de variância — o que só o
 `StandardScaler` garante. Com ele os blocos ficam em 33,3% cada; com
-`RobustScaler` ficavam em 37/33/30 e a segunda componente principal era
-**uma variável só** (`i_planejamento_ord`, carga 0,88, porque seu IQR de 0,333
-fazia o escalonador multiplicá-la por três). São necessárias **9 componentes
-para 80% da variância**: não há estrutura de baixa dimensão, o que reforça que
-os três blocos são complementares.
+`RobustScaler` ficavam em 34/36/30 e a segunda componente principal era
+**uma variável só** (`i_planejamento_ord`, carga 0,93, porque seu IQR de 0,333
+fazia o escalonador multiplicá-la por três). São necessárias **12 das 22
+componentes para 80% da variância**: não há estrutura de baixa dimensão, o
+que reforça que os três blocos são complementares. A PC1 (24,6%) é um eixo
+de condição socioeconômica (alfabetização, urbanização, lixo, renda, esgoto).
 
 ## Estrutura
 
@@ -242,8 +311,9 @@ rp2_inicial/
 │   ├── parse_ssp.py           # microdados da SSP -> painel mensal (streaming)
 │   ├── parse_iegm.py          # .xls legado do IEGM -> conceitos + ordinais
 │   ├── merge_bases.py         # une tudo por codigo_ibge -> base final
-│   └── estilo.py              # paleta validada e rcParams das figuras
-├── notebooks/                 # análise (Fases 1 e 2)
+│   ├── figuras.py             # uma função por figura do artigo
+│   └── estilo.py              # estilo do matplotlib + salvar()
+├── notebooks/                 # análise (Fases 1 a 3) + apêndice 03b
 ├── figuras/                   # saída das figuras do artigo
 └── data/
     ├── raw/{ssp,ieg-m,ibge}/

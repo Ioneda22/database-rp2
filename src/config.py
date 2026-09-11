@@ -1,8 +1,7 @@
 """
-Configurações e constantes compartilhadas por todo o pipeline.
+Configurações usadas por todos os scripts.
 
-Ajuste os valores aqui em vez de espalhar "números mágicos" pelos outros
-scripts.
+Os valores ficam aqui para não espalhar números pelo código.
 """
 from pathlib import Path
 
@@ -15,80 +14,99 @@ SSP_DIR = DATA_RAW / "ssp"
 IEGM_DIR = DATA_RAW / "ieg-m"
 IBGE_DIR = DATA_RAW / "ibge"
 
-# Os arquivos da SSP vêm um por ano. O pipeline descobre sozinho quais anos
-# existem em disco -- basta jogar novos arquivos nessas pastas.
+# Os arquivos da SSP vêm um por ano. O script lê todos que encontrar.
 SSP_CRIMINAIS_GLOB = "SPDadosCriminais_*.xlsx"
 SSP_VEICULOS_GLOB = "VeiculosSubtraidos_*.xlsx"
 SSP_CELULARES_GLOB = "CelularesSubtraidos_*.xlsx"
 
-# O TCE-SP publica uma planilha por EXERCÍCIO. Temos três em disco (exercícios
-# 2022, 2023 e 2024, apurados em 2023, 2024 e 2025), e o pipeline lê todas as
-# que encontrar -- os nomes dos arquivos são irrelevantes e, de fato, enganosos
-# (`ieg_m_2025.xls` é o exercício 2022). O que vale é a coluna `exercicio_ref`
-# de dentro da planilha.
+# O IEGM tem uma planilha por exercício. O script lê todas. O nome do arquivo
+# não diz o ano (ieg_m_2025.xls é o exercício 2022); o que vale é a coluna
+# exercicio_ref dentro da planilha.
 IEGM_GLOB = "*.xls"
 
 # Gerados pelo ibge_sidra.py
 POPULACAO_CSV = IBGE_DIR / "ibge_populacao.csv"
 PIB_PERCAPITA_CSV = IBGE_DIR / "ibge_pib_percapita.csv"
 URBANIZACAO_CSV = IBGE_DIR / "ibge_urbanizacao.csv"
+CENSO2022_CSV = IBGE_DIR / "ibge_censo2022.csv"
 
 # --- Saídas -------------------------------------------------------------
-# Camada intermediária (município x ano): cara de gerar, barata de reusar.
+# Arquivos intermediários da SSP. Demoram para gerar, por isso ficam salvos.
 SSP_PAINEL_CSV = DATA_PROCESSED / "ssp_painel.csv"
 SSP_TEXTURA_CSV = DATA_PROCESSED / "ssp_textura.csv"
 SSP_COMPLEMENTAR_CSV = DATA_PROCESSED / "ssp_complementar.csv"
 SSP_COBERTURA_CSV = DATA_PROCESSED / "ssp_cobertura.csv"
 
-# Camada final (uma linha por município)
+# Base final (uma linha por município)
 BASE_FINAL_CSV = DATA_PROCESSED / "base_final.csv"
 DICIONARIO_CSV = DATA_PROCESSED / "dicionario_base.csv"
 RELATORIO_TXT = DATA_PROCESSED / "relatorio_base.txt"
 
-# --- Parâmetros do domínio ----------------------------------------------
+# --- Parâmetros ---------------------------------------------------------
 UF_CODE_SP = "35"
 TAXA_POR_HABITANTES = 100_000
-CODIGO_CAPITAL = "3550308"   # São Paulo: fiscalizada pelo TCM-SP, fora do IEGM
+CODIGO_CAPITAL = "3550308"   # São Paulo não tem IEGM (é fiscalizada pelo TCM-SP)
 
 # --- Tabelas do SIDRA ---------------------------------------------------
-TABELA_POPULACAO = "6579"    # Estimativas de População (anual)
-TABELA_PIB = "5938"          # PIB dos Municípios (último período: 2023)
-# Urbanização: a tabela 202 é do Censo ANTIGO -- seus períodos param em 2010
-# (verificado na API: [1970, 1980, 1991, 2000, 2010]). Pedir period="last"
-# nela devolve silenciosamente o Censo 2010. A tabela do Censo 2022 é a 9923,
-# que desce a município (N6) e traz a classificação 1 (Situação do domicílio:
-# 6795=Total, 1=Urbana, 2=Rural).
+TABELA_POPULACAO = "6579"    # estimativa de população (anual)
+TABELA_PIB = "5938"          # PIB dos municípios (último ano: 2023)
+# Urbanização vem da 9923 (Censo 2022). A tabela 202 parece a mesma coisa,
+# mas é do Censo 2010: period="last" nela devolve 2010 sem dar erro.
 TABELA_URBANIZACAO = "9923"
 ANO_CENSO_URBANIZACAO = "2022"
 
-# Janela temporal da análise.
-#   None  -> usa todos os anos encontrados em data/raw/ssp/
+# Indicadores do Censo 2022 por município. Os códigos de tabela, variável e
+# categoria foram conferidos na API de metadados do IBGE em 10/09/2026.
+# Entraram porque PIB per capita e urbanização sozinhos não representam bem
+# a condição socioeconômica (o PIB per capita, por exemplo, fica muito alto
+# em cidades com uma usina ou um polo industrial).
+TABELA_ALFABETIZACAO = "9543"   # variável 2513: % alfabetizados, 15 anos ou mais
+TABELA_RENDA = "10295"          # variável 13534: renda domiciliar per capita
+                                #   mediana (R$). Mediana, não média, para
+                                #   não sofrer com os valores extremos.
+TABELA_ESGOTO = "6805"          # variável 381: domicílios por tipo de esgoto
+TABELA_LIXO = "6892"            # variável 381: domicílios por destino do lixo
+ANO_CENSO = "2022"
+
+# Códigos das categorias na API. "Total" em sexo, cor/raça e idade quer dizer
+# o município inteiro, sem recorte.
+CENSO_TOTAL_SEXO = "6794"
+CENSO_TOTAL_COR = "95251"
+CENSO_TOTAL_IDADE_ALFAB = "100362"   # classificação 287 (tabela 9543)
+CENSO_TOTAL_IDADE_RENDA = "95253"    # classificação 58 (tabela 10295)
+
+# Esgoto adequado = rede geral (ou fossa ligada à rede) + fossa séptica.
+CENSO_ESGOTO_TOTAL = "46292"
+CENSO_ESGOTO_ADEQUADO = ["46290", "72112"]
+CENSO_LIXO_TOTAL = "10972"
+CENSO_LIXO_COLETADO = ["2520"]
+
+# Anos usados na análise.
+#   None  -> usa todos os anos que estiverem em data/raw/ssp/
 #   lista -> ex.: [2023, 2024, 2025]
-#
-# A recomendação metodológica é [2023, 2024, 2025]: três anos civis completos,
-# posteriores à migração R.D.O. -> S.P.J. (concluída entre 2022 e 2023, ver a
-# aba METODOLOGIA dos arquivos da SSP) e posteriores ao choque de mobilidade
-# da pandemia. Os três anos estão em disco e são completos (JAN-JUN + JUL-DEZ
-# em cada arquivo), logo exposicao_anos = 3,000 exatos.
+# Usamos 2023 a 2025: três anos completos, depois da troca de sistema da SSP
+# (entre 2022 e 2023) e depois da pandemia. A janela foi testada no
+# notebook 01.
 ANOS_JANELA = [2023, 2024, 2025]
 
-# Ano de referência da população usada como denominador das taxas.
-#   None -> usa o ano disponível no CSV do IBGE que estiver em data/raw/ibge/
-# ATENÇÃO: a tabela 6579 do SIDRA não publica estimativa para 2022 nem 2023
-# (anos de Censo/recalibração) -- verificado na API: os períodos vão
-# [..., 2020, 2021, 2024, 2025, 2026]. Para a janela 2023-2025 usamos 2024,
-# o ponto médio da janela, como referência única.
+# Ano da população usada como denominador das taxas.
+#   None -> usa o ano que estiver no CSV do IBGE
+# A tabela 6579 não tem 2022 nem 2023 (anos de Censo). Usamos 2024, que é o
+# meio da janela.
 ANO_POPULACAO_REF = 2024
 
-# Limiar de população para sinalizar municípios sujeitos ao problema dos
-# números pequenos (uma única ocorrência vira uma taxa altíssima). Não exclui
-# ninguém da base: gera apenas a coluna `flag_pop_pequena`, para a análise de
-# sensibilidade. Mediana populacional de SP = ~13.500 hab.
+# Municípios com menos habitantes que isso recebem flag_pop_pequena. Neles,
+# uma única ocorrência já vira uma taxa alta por 100 mil habitantes. Não são
+# excluídos da base, só marcados.
 POPULACAO_MINIMA = 5_000
 
+# Se duas features têm correlação de Spearman acima disso, medem a mesma
+# coisa e uma delas sai. Usado no notebook 02 e para decidir se o PIB per
+# capita fica ao lado da renda mediana.
+LIMIAR_REDUNDANCIA = 0.85
+
 # --- IEGM ---------------------------------------------------------------
-# O IEGM divulga TODAS as notas (geral e as 7 dimensões) como conceito em
-# letra, nunca como número. Esta é a escala ordinal usada na clusterização.
+# As notas do IEGM vêm como letra. Esta é a conversão para número.
 ESCALA_ORDINAL_IEGM = {"C": 1, "C+": 2, "B": 3, "B+": 4, "A": 5}
 
 # nome na planilha -> nome na base final
@@ -103,13 +121,13 @@ COLUNAS_IEGM = {
     "igov": "i_gov_ti",
 }
 
-# --- Agrupamento das naturezas criminais --------------------------------
-# Bloco B: as variáveis de criminalidade que entram na clusterização.
-# A comparação é feita sobre o texto normalizado (sem acento, maiúsculo).
+# --- Naturezas criminais usadas ----------------------------------------
+# Cada grupo vira uma taxa na base. A comparação com o arquivo da SSP é feita
+# sem acento e em maiúsculas.
 GRUPOS_NATUREZA = {
-    # CVLI (Crimes Violentos Letais Intencionais): indicador padrão da
-    # literatura brasileira de segurança pública. Agregar as três naturezas
-    # letais reduz a zero-inflação sem inventar nada.
+    # CVLI = crimes violentos letais intencionais. É o indicador padrão nos
+    # estudos de segurança pública no Brasil, e juntar os três diminui a
+    # quantidade de zeros.
     "cvli": ["HOMICÍDIO DOLOSO", "LATROCÍNIO", "LESÃO CORPORAL SEGUIDA DE MORTE"],
     "tentativa_homicidio": ["TENTATIVA DE HOMICÍDIO"],
     "lesao_dolosa": ["LESÃO CORPORAL DOLOSA"],
@@ -122,15 +140,13 @@ GRUPOS_NATUREZA = {
     "trafico": ["TRÁFICO DE ENTORPECENTES"],
 }
 
-# Naturezas deliberadamente FORA do Bloco B (mas preservadas no painel
-# intermediário, caso vocês mudem de ideia):
-#   - culposos de trânsito: fenômeno de segurança viária, dirigido por
-#     densidade rodoviária, não por padrão de criminalidade;
-#   - porte/apreensão de entorpecentes e porte de arma: medem atividade
-#     policial (oferta de policiamento), não incidência criminal.
-# `trafico` sofre da mesma crítica e foi mantido por medir presença de
-# organização criminosa -- registre o caveat no artigo.
+# Ficaram de fora (mas continuam no painel intermediário):
+#   - crimes culposos de trânsito: são segurança viária, não criminalidade;
+#   - porte/apreensão de drogas e porte de arma: dependem de quanto a polícia
+#     atua, não de quanto crime acontece.
+# O tráfico tem esse mesmo problema, mas ficou por indicar presença de
+# organização criminosa. Vale citar essa limitação no artigo.
 
-# Variáveis de criminalidade consideradas de segunda linha (alta concentração
-# em poucos municípios). O script de modelagem decide se entram.
+# Taxas de segunda linha (concentradas em poucos municípios). A modelagem
+# decide se entram.
 NATUREZAS_TIER2 = ["roubo_carga"]

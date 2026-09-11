@@ -1,13 +1,12 @@
 """
-Orquestra a construção da base: aquisição + integração dos dados.
+Monta a base de dados do projeto em 4 etapas.
 
-Uso:
-    python main.py            # roda o que faltar
-    python main.py --forcar   # reprocessa a SSP mesmo se o painel já existir
+Como usar:
+    python main.py            # roda só o que ainda não foi feito
+    python main.py --forcar   # refaz a leitura dos arquivos da SSP
 
-Rode a partir da raiz do projeto. A etapa cara é a agregação dos microdados da
-SSP (arquivos de 34 a 112 MB, milhões de linhas); ela grava um painel
-intermediário em data/processed/ e só é refeita se você mandar.
+A parte demorada é ler os arquivos da SSP (milhões de linhas). O resultado
+fica salvo em data/processed/ e só é refeito com --forcar.
 """
 import sys
 from pathlib import Path
@@ -16,7 +15,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent / "src"))
 
 from config import (
     SSP_DIR, IEGM_DIR, IEGM_GLOB, SSP_CRIMINAIS_GLOB,
-    POPULACAO_CSV, PIB_PERCAPITA_CSV, URBANIZACAO_CSV,
+    POPULACAO_CSV, PIB_PERCAPITA_CSV, URBANIZACAO_CSV, CENSO2022_CSV,
     SSP_PAINEL_CSV, DATA_PROCESSED,
 )
 
@@ -31,7 +30,7 @@ def main() -> None:
 
     etapa("1/4 - IBGE/SIDRA (automático)")
     if not (POPULACAO_CSV.exists() and PIB_PERCAPITA_CSV.exists()
-            and URBANIZACAO_CSV.exists()):
+            and URBANIZACAO_CSV.exists() and CENSO2022_CSV.exists()):
         import ibge_sidra
         ibge_sidra.main()
     else:
@@ -54,8 +53,8 @@ def main() -> None:
         return
     print(f"SSP: {len(criminais)} arquivo(s) -> "
           f"{', '.join(a.name for a in criminais)}")
-    # O nome do arquivo do IEGM não diz o exercício (`ieg_m_2025.xls` é o
-    # exercício 2022); quem informa é a coluna exercicio_ref, lida adiante.
+    # O nome do arquivo do IEGM não diz o ano. Isso vem da coluna
+    # exercicio_ref, lida no parse_iegm.py.
     print(f"IEGM: {len(iegm)} planilha(s) -> "
           f"{', '.join(a.name for a in iegm)}")
 
