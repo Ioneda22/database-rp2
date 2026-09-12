@@ -388,8 +388,9 @@ def relatorio(base: pd.DataFrame, dic: pd.DataFrame, anos, exposicao) -> str:
 
     L.append("\n--- Bloco B: taxas por 100 mil hab./ano ---")
     L.append(f"  {'variável':30s} {'média':>9s} {'mediana':>9s} {'máx':>10s} {'zeros':>7s}")
-    for col in [c for c in base.columns if c.startswith("taxa_")
-                and c != "taxa_urbanizacao" and c != "taxa_recuperacao_veiculo"]:
+    taxas_crime = [c for c in dic.loc[dic["bloco"] == "criminalidade", "coluna"]
+                   if c in base.columns]
+    for col in taxas_crime:
         s = base[col]
         zeros = int((s == 0).sum())
         L.append(f"  {col:30s} {s.mean():9.1f} {s.median():9.1f} "
@@ -412,9 +413,11 @@ def relatorio(base: pd.DataFrame, dic: pd.DataFrame, anos, exposicao) -> str:
                  f"1/sqrt({len(grupo)}) = {1 / len(grupo) ** 0.5:.3f}")
     L.append("  Sem peso por bloco, cada bloco influencia a distância na")
     L.append("  proporção do nº de colunas que a fonte por acaso tem.")
-    L.append("\n  Transformações a aplicar NO SCRIPT DE MODELAGEM (não aqui):")
-    L.append("    log1p nas taxas e no PIB per capita (fortemente assimétricos),")
-    L.append("    depois RobustScaler, ajustado só no subconjunto clusterizado.")
+    L.append("\n  Transformações aplicadas NO NOTEBOOK DE MODELAGEM (não aqui):")
+    L.append("    log1p nas taxas criminais e nas duas variáveis em R$ (PIB per")
+    L.append("    capita e renda domiciliar mediana), depois StandardScaler")
+    L.append("    ajustado só no subconjunto clusterizado, e peso 1/sqrt(n) por")
+    L.append("    bloco. Ver notebooks/03_preprocessamento.ipynb e o apêndice 03b.")
     return "\n".join(L)
 
 

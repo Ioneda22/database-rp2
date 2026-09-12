@@ -40,7 +40,6 @@ Com população < 5,000: 149 (23.1%) -- mantidos na base, usar em análise de se
 
 --- Bloco B: taxas por 100 mil hab./ano ---
   variável                           média   mediana        máx   zeros
-  taxa_alfabetizacao                  94.9      95.0       98.8     0 (0%)
   taxa_cvli                            6.9       5.7       50.5   131 (20%)
   taxa_tentativa_homicidio            11.3       9.4       73.6    66 (10%)
   taxa_lesao_dolosa                  409.5     394.7     1169.1     0 (0%)
@@ -65,6 +64,8 @@ Com população < 5,000: 149 (23.1%) -- mantidos na base, usar em análise de se
   Sem peso por bloco, cada bloco influencia a distância na
   proporção do nº de colunas que a fonte por acaso tem.
 
-  Transformações a aplicar NO SCRIPT DE MODELAGEM (não aqui):
-    log1p nas taxas e no PIB per capita (fortemente assimétricos),
-    depois RobustScaler, ajustado só no subconjunto clusterizado.
+  Transformações aplicadas NO NOTEBOOK DE MODELAGEM (não aqui):
+    log1p nas taxas criminais e nas duas variáveis em R$ (PIB per
+    capita e renda domiciliar mediana), depois StandardScaler
+    ajustado só no subconjunto clusterizado, e peso 1/sqrt(n) por
+    bloco. Ver notebooks/03_preprocessamento.ipynb e o apêndice 03b.

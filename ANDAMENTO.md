@@ -279,6 +279,23 @@ método | validação | integra gestão pública?`); (3) buscar 2 trabalhos novo
 
 ## 6. Changelog
 
+### [11/09/2026] Relatório da base — seleção das taxas e transformações
+
+**Corrigido**
+
+- `relatorio()` em `src/merge_bases.py` escolhia o Bloco B por prefixo
+  `taxa_` com exceções à mão, e `taxa_alfabetizacao` (Censo 2022, 94,9%)
+  saía listada como taxa criminal por 100 mil hab./ano; a seleção passou a
+  ser por `bloco == "criminalidade"` no dicionário, como já faziam os
+  notebooks, e a seção volta a ter exatamente as 10 taxas criminais.
+
+**Alterado**
+
+- O bloco final de `relatorio_base.txt` passa a descrever o que o notebook
+  de modelagem faz de fato — `log1p` nas taxas criminais e nas duas
+  variáveis em R$, `StandardScaler` e peso `1/√n` por bloco — no lugar do
+  `RobustScaler` abandonado em 07/09.
+
 ### [10/09/2026] Revisão cruzada com o artigo — base e notebooks
 
 Implementa as nove tarefas de `REVISAO_BASE_E_NOTEBOOKS.md`. Regra adotada
