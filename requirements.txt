@@ -5,18 +5,15 @@ xlrd>=1.2,<2         # lê o .xls legado (BIFF) do IEGM; xlrd 2.x removeu suport
 sidrapy>=0.1.4
 requests>=2.31
 
-# --- análise em notebook (Fases 1 e 2) ---
 # O VS Code pede o ipykernel na primeira vez que você abre um .ipynb; o
 # jupyterlab só é necessário para rodar fora do editor.
 ipykernel>=6.29
 jupyterlab>=4.0
 
-# --- modelagem (seções 3.3 e 3.4 do artigo) ---
 scikit-learn>=1.3    # K-means, hierárquico, DBSCAN e métricas de validação
 scipy>=1.10          # Kruskal-Wallis / ANOVA
 matplotlib>=3.7
 seaborn>=0.13
 
-# --- mapas coropléticos (seção 3.4) ---
 # precisa também da malha municipal do IBGE, unida por codigo_ibge
 geopandas>=0.14

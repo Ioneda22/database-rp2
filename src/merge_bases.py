@@ -417,7 +417,7 @@ def relatorio(base: pd.DataFrame, dic: pd.DataFrame, anos, exposicao) -> str:
     L.append("    log1p nas taxas criminais e nas duas variáveis em R$ (PIB per")
     L.append("    capita e renda domiciliar mediana), depois StandardScaler")
     L.append("    ajustado só no subconjunto clusterizado, e peso 1/sqrt(n) por")
-    L.append("    bloco. Ver notebooks/03_preprocessamento.ipynb e o apêndice 03b.")
+    L.append("    bloco.")
     return "\n".join(L)
 
 
