@@ -32,10 +32,6 @@ from config import (
 )
 
 
-def _print_debug(label: str, df: pd.DataFrame) -> None:
-    print(f"\n[debug] {label}: {df.shape[0]} linhas, colunas = {list(df.columns)}")
-
-
 def _descobrir_variavel(tabela: str, precisa_conter: list[str], nao_pode_conter: list[str] | None = None) -> tuple[str, str]:
     """
     Procura o código de uma variável da tabela pelo nome, na API de
@@ -65,12 +61,8 @@ def _descobrir_variavel(tabela: str, precisa_conter: list[str], nao_pode_conter:
             f"Variáveis disponíveis: {disponiveis}\n"
             f"Ajuste manualmente o filtro em _descobrir_variavel()."
         )
-    if len(candidatas) > 1:
-        print(f"[aviso] mais de uma variável bateu com o filtro {precisa_conter!r}: "
-              f"{[(v['id'], v['nome']) for v in candidatas]}. Usando a primeira.")
-
+    # Se mais de uma variável bater com o filtro, usamos a primeira.
     var_id, var_nome = candidatas[0]["id"], candidatas[0]["nome"]
-    print(f"[debug] variável identificada em '{tabela}': {var_id} ({var_nome})")
     return str(var_id), var_nome
 
 
@@ -89,12 +81,8 @@ def _descobrir_classificacao(tabela: str, contem: str) -> tuple[str, str]:
             f"Não encontrei nenhuma classificação com {contem!r} nos metadados "
             f"da tabela {tabela}. Classificações disponíveis: {disponiveis}"
         )
-    if len(candidatas) > 1:
-        print(f"[aviso] mais de uma classificação bateu com {contem!r}: "
-              f"{[(c['id'], c['nome']) for c in candidatas]}. Usando a primeira.")
-
+    # Se mais de uma classificação bater, usamos a primeira.
     class_id, class_nome = candidatas[0]["id"], candidatas[0]["nome"]
-    print(f"[debug] classificação identificada em '{tabela}': {class_id} ({class_nome})")
     return str(class_id), class_nome
 
 
@@ -118,8 +106,6 @@ def get_populacao(periodo: str = "last") -> pd.DataFrame:
     Para o denominador das taxas o main() passa o ano de ANO_POPULACAO_REF
     (2024). Com period="last" viria 2026.
     """
-    print(f"Baixando população (tabela {TABELA_POPULACAO}, "
-          f"período={periodo})...")
     df = sidrapy.get_table(
         table_code=TABELA_POPULACAO,
         territorial_level="6",
@@ -127,7 +113,6 @@ def get_populacao(periodo: str = "last") -> pd.DataFrame:
         period=periodo,
     )
     # O sidrapy devolve um DataFrame com colunas D1C, D1N, V etc.
-    _print_debug("população (bruto)", df)
     df = _filtrar_sp(df)
     df = df.rename(columns={
         "D1C": "codigo_ibge",
@@ -143,8 +128,6 @@ def get_populacao(periodo: str = "last") -> pd.DataFrame:
 
 def get_pib_total(periodo: str = "last") -> pd.DataFrame:
     """PIB total (R$ 1.000, preços correntes) por município de SP."""
-    print(f"Baixando PIB total (tabela 5938, período={periodo})...")
-
     # A tabela 5938 tem muitas variáveis. Pegamos só o PIB total, sem as
     # variantes de "participação".
     variavel, _ = _descobrir_variavel(
@@ -160,8 +143,6 @@ def get_pib_total(periodo: str = "last") -> pd.DataFrame:
         variable=variavel,
         period=periodo,
     )
-    _print_debug("PIB total (bruto)", df)
-
     df = _filtrar_sp(df)
     df = df.rename(columns={
         "D1C": "codigo_ibge",
@@ -192,7 +173,6 @@ def get_pib_percapita() -> pd.DataFrame:
             f"{list(anos_pib)}. Ajuste get_pib_percapita() para tratar múltiplos anos."
         )
     ano_pib = str(anos_pib[0])
-    print(f"[debug] ano de referência do PIB: {ano_pib} -- buscando população desse mesmo ano")
 
     # Se o ano do PIB não existir na tabela de população, usamos o ano mais
     # recente antes dele.
@@ -208,9 +188,6 @@ def get_pib_percapita() -> pd.DataFrame:
                 f"como aproximação. Ajuste manualmente get_pib_percapita()."
             )
         periodo_pop = max(anteriores, key=int)
-        print(f"[aviso] população não publicada para {ano_pib} na tabela 6579 "
-              f"(provavelmente ano de Censo/transição). Usando o período "
-              f"disponível mais próximo: {periodo_pop}.")
 
     populacao_ano_pib = get_populacao(periodo=periodo_pop)
 
@@ -219,11 +196,6 @@ def get_pib_percapita() -> pd.DataFrame:
         on="codigo_ibge",
         how="left",
     )
-    faltando = df["populacao"].isna().sum()
-    if faltando:
-        print(f"[aviso] {faltando} município(s) sem população para {ano_pib}; "
-              f"pib_percapita vai ficar NaN pra eles.")
-
     df["pib_percapita"] = (df["pib_total_mil_reais"] * 1000) / df["populacao"]
     cols = ["codigo_ibge", "municipio", "pib_percapita", "pib_total_mil_reais", "populacao", "ano_pib"]
     return df[[c for c in cols if c in df.columns]].reset_index(drop=True)
@@ -236,9 +208,6 @@ def get_urbanizacao(periodo: str = ANO_CENSO_URBANIZACAO) -> pd.DataFrame:
     Não usar a tabela 202: ela é do Censo 2010 e period="last" devolveria
     2010 sem avisar.
     """
-    print(f"Baixando situação do domicílio (tabela {TABELA_URBANIZACAO}, "
-          f"Censo {periodo}) para calcular urbanização...")
-
     disponiveis = _periodos_disponiveis(TABELA_URBANIZACAO)
     if periodo not in disponiveis:
         raise SystemExit(
@@ -266,8 +235,6 @@ def get_urbanizacao(periodo: str = ANO_CENSO_URBANIZACAO) -> pd.DataFrame:
         classification=f"{class_id}/all",
         period=periodo,
     )
-    _print_debug("situação do domicílio (bruto)", df)
-
     # Filtrar por SP também remove a linha de cabeçalho que o sidrapy às
     # vezes deixa no começo.
     df = _filtrar_sp(df)
@@ -371,7 +338,6 @@ def get_censo_2022() -> pd.DataFrame:
     Os dois primeiros já vêm prontos (pedimos "Total" em sexo, cor e idade).
     Os dois últimos são calculados a partir das contagens de domicílios.
     """
-    print(f"Baixando alfabetização (tabela {TABELA_ALFABETIZACAO})...")
     alf = _censo(TABELA_ALFABETIZACAO, "2513", {
         "2": CENSO_TOTAL_SEXO, "86": CENSO_TOTAL_COR,
         "287": CENSO_TOTAL_IDADE_ALFAB,
@@ -379,8 +345,6 @@ def get_censo_2022() -> pd.DataFrame:
     alf = alf[["D1C", "V"]].rename(columns={"D1C": "codigo_ibge",
                                             "V": "taxa_alfabetizacao"})
 
-    print(f"Baixando renda domiciliar per capita mediana "
-          f"(tabela {TABELA_RENDA})...")
     ren = _censo(TABELA_RENDA, "13534", {
         "2": CENSO_TOTAL_SEXO, "86": CENSO_TOTAL_COR,
         "58": CENSO_TOTAL_IDADE_RENDA,
@@ -388,11 +352,9 @@ def get_censo_2022() -> pd.DataFrame:
     ren = ren[["D1C", "V"]].rename(columns={"D1C": "codigo_ibge",
                                             "V": "renda_domiciliar_mediana"})
 
-    print(f"Baixando esgotamento sanitário (tabela {TABELA_ESGOTO})...")
     esg = _percentual(TABELA_ESGOTO, "381", "11558", CENSO_ESGOTO_TOTAL,
                       CENSO_ESGOTO_ADEQUADO, "prop_esgoto_adequado")
 
-    print(f"Baixando destino do lixo (tabela {TABELA_LIXO})...")
     lixo = _percentual(TABELA_LIXO, "381", "67", CENSO_LIXO_TOTAL,
                        CENSO_LIXO_COLETADO, "prop_lixo_coletado")
 
@@ -400,11 +362,6 @@ def get_censo_2022() -> pd.DataFrame:
              .merge(esg, on="codigo_ibge", how="outer")
              .merge(lixo, on="codigo_ibge", how="outer"))
     df["ano_censo"] = int(ANO_CENSO)
-
-    faltando = df.drop(columns=["codigo_ibge", "ano_censo"]).isna().sum()
-    if faltando.sum():
-        print("[aviso] valores ausentes por indicador:")
-        print(faltando[faltando > 0].to_string())
     return df.reset_index(drop=True)
 
 

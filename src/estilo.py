@@ -24,5 +24,4 @@ def salvar(fig, nome: str) -> Path:
     FIGURAS_DIR.mkdir(parents=True, exist_ok=True)
     caminho = FIGURAS_DIR / f"{nome}.png"
     fig.savefig(caminho)
-    print(f"-> figuras/{nome}.png")
     return caminho
