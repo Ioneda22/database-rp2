@@ -21,7 +21,7 @@ from config import (
     LIMIAR_REDUNDANCIA,
     SSP_PAINEL_CSV, SSP_TEXTURA_CSV, SSP_COMPLEMENTAR_CSV, SSP_COBERTURA_CSV,
     BASE_FINAL_CSV, DICIONARIO_CSV, RELATORIO_TXT,
-    ANOS_JANELA, ANO_POPULACAO_REF, POPULACAO_MINIMA, CODIGO_CAPITAL,
+    ANOS_JANELA, POPULACAO_MINIMA, CODIGO_CAPITAL,
     TAXA_POR_HABITANTES, GRUPOS_NATUREZA, NATUREZAS_TIER2, COLUNAS_IEGM,
 )
 from parse_iegm import carregar_iegm
@@ -103,15 +103,6 @@ def agregar_janela(painel: pd.DataFrame, anos: list[int]) -> pd.DataFrame:
         for nat in naturezas:
             mapa[normaliza(nat)] = grupo
 
-    nao_mapeadas = sorted(set(dados["natureza"]) - set(mapa))
-    if nao_mapeadas:
-        print(f"[info] naturezas fora do Bloco B (preservadas no painel, "
-              f"ausentes na base final): {nao_mapeadas}")
-    faltando = sorted(set(mapa) - set(dados["natureza"]))
-    if faltando:
-        print(f"[aviso] naturezas de GRUPOS_NATUREZA que NÃO aparecem no "
-              f"painel: {faltando}. Confira a grafia em config.py.")
-
     dados = dados.assign(grupo=dados["natureza"].map(mapa)).dropna(subset=["grupo"])
     largo = (
         dados.groupby(["codigo_ibge", "grupo"])["ocorrencias"].sum()
@@ -134,15 +125,8 @@ def montar_base_final() -> tuple[pd.DataFrame, pd.DataFrame, list[int], float]:
     cobertura = pd.read_csv(SSP_COBERTURA_CSV)
 
     anos, exposicao = definir_janela(cobertura)
-    print(f"Janela: {anos} | exposição = {exposicao:.3f} ano(s)-equivalente(s)")
 
     # --- população usada como denominador ---
-    if ANO_POPULACAO_REF is not None:
-        ano_pop = ANO_POPULACAO_REF
-        if str(base["ano_populacao"].iloc[0]) != str(ano_pop):
-            print(f"[aviso] ANO_POPULACAO_REF={ano_pop}, mas o CSV em disco é de "
-                  f"{base['ano_populacao'].iloc[0]}. Rode ibge_sidra.py para o "
-                  "ano correto ou deixe ANO_POPULACAO_REF=None.")
     ano_pop = base["ano_populacao"].iloc[0]
 
     # --- taxas de criminalidade ---
@@ -335,11 +319,7 @@ def montar_dicionario(base: pd.DataFrame) -> pd.DataFrame:
     add("ano_populacao_ref", "qualidade", "int", "metadado",
         "Ano da população usada como denominador")
 
-    dic = pd.DataFrame(linhas)
-    orfas = [c for c in base.columns if c not in set(dic["coluna"])]
-    if orfas:
-        print(f"[aviso] colunas sem entrada no dicionário: {orfas}")
-    return dic
+    return pd.DataFrame(linhas)
 
 
 def relatorio(base: pd.DataFrame, dic: pd.DataFrame, anos, exposicao) -> str:

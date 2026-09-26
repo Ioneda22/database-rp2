@@ -5,7 +5,7 @@ Os valores ficam aqui para não espalhar números pelo código.
 """
 from pathlib import Path
 
-# Caminhos --------------------------------------------------------------
+# --- Caminhos -----------------------------------------------------------
 BASE_DIR = Path(__file__).resolve().parent.parent
 DATA_RAW = BASE_DIR / "data" / "raw"
 DATA_PROCESSED = BASE_DIR / "data" / "processed"
@@ -30,7 +30,7 @@ PIB_PERCAPITA_CSV = IBGE_DIR / "ibge_pib_percapita.csv"
 URBANIZACAO_CSV = IBGE_DIR / "ibge_urbanizacao.csv"
 CENSO2022_CSV = IBGE_DIR / "ibge_censo2022.csv"
 
-# Saídas ---------------------------------------------------------------------------
+# --- Saídas -------------------------------------------------------------
 # Arquivos intermediários da SSP. Demoram para gerar, por isso ficam salvos.
 SSP_PAINEL_CSV = DATA_PROCESSED / "ssp_painel.csv"
 SSP_TEXTURA_CSV = DATA_PROCESSED / "ssp_textura.csv"
@@ -42,12 +42,12 @@ BASE_FINAL_CSV = DATA_PROCESSED / "base_final.csv"
 DICIONARIO_CSV = DATA_PROCESSED / "dicionario_base.csv"
 RELATORIO_TXT = DATA_PROCESSED / "relatorio_base.txt"
 
-# Parâmetros ----------------------------------------------------------------------
+# --- Parâmetros ---------------------------------------------------------
 UF_CODE_SP = "35"
 TAXA_POR_HABITANTES = 100_000
 CODIGO_CAPITAL = "3550308"   # São Paulo não tem IEGM (é fiscalizada pelo TCM-SP)
 
-# Tabelas do SIDRA ---------------------------------------------------------------
+# --- Tabelas do SIDRA ---------------------------------------------------
 TABELA_POPULACAO = "6579"    # estimativa de população (anual)
 TABELA_PIB = "5938"          # PIB dos municípios (último ano: 2023)
 # Urbanização vem da 9923 (Censo 2022). A tabela 202 parece a mesma coisa,
@@ -61,7 +61,9 @@ ANO_CENSO_URBANIZACAO = "2022"
 # a condição socioeconômica (o PIB per capita, por exemplo, fica muito alto
 # em cidades com uma usina ou um polo industrial).
 TABELA_ALFABETIZACAO = "9543"   # variável 2513: % alfabetizados, 15 anos ou mais
-TABELA_RENDA = "10295"          # variável 13534: renda domiciliar per capita mediana (R$). Mediana, não média, para não sofrer com os valores extremos.
+TABELA_RENDA = "10295"          # variável 13534: renda domiciliar per capita
+                                #   mediana (R$). Mediana, não média, para
+                                #   não sofrer com os valores extremos.
 TABELA_ESGOTO = "6805"          # variável 381: domicílios por tipo de esgoto
 TABELA_LIXO = "6892"            # variável 381: domicílios por destino do lixo
 ANO_CENSO = "2022"
@@ -103,7 +105,7 @@ POPULACAO_MINIMA = 5_000
 # capita fica ao lado da renda mediana.
 LIMIAR_REDUNDANCIA = 0.85
 
-# IEGM ---------------------------------------------------------------
+# --- IEGM ---------------------------------------------------------------
 # As notas do IEGM vêm como letra. Esta é a conversão para número.
 ESCALA_ORDINAL_IEGM = {"C": 1, "C+": 2, "B": 3, "B+": 4, "A": 5}
 
@@ -119,7 +121,7 @@ COLUNAS_IEGM = {
     "igov": "i_gov_ti",
 }
 
-# Naturezas criminais usadas --------------------------------------------------
+# --- Naturezas criminais usadas ----------------------------------------
 # Cada grupo vira uma taxa na base. A comparação com o arquivo da SSP é feita
 # sem acento e em maiúsculas.
 GRUPOS_NATUREZA = {
