@@ -279,6 +279,40 @@ método | validação | integra gestão pública?`); (3) buscar 2 trabalhos novo
 
 ## 6. Changelog
 
+### [02/10/2026] T2 — notebook 04, três algoritmos
+
+**Adicionado**
+
+- `notebooks/04_clusterizacao.ipynb`: K-means e Ward para k de 2 a 10 e
+  DBSCAN sobre as 12 componentes do PCA. Só mede; a escolha fica para o
+  notebook 05.
+- `src/clusterizacao.py`: `agrupar`, `soma_quadrados_interna`,
+  `metricas_por_k`, `componentes_pca`, `distancia_k_vizinho` e
+  `grade_dbscan`.
+- `src/figuras.py`, seção "Fase 4": `plot_selecao_k` (Figura 4),
+  `plot_k_distancia` e `plot_dendrograma`.
+- `data/processed/metricas_clusterizacao.csv` (18 linhas) e
+  `data/processed/dbscan_grade.csv` (14 linhas; além das colunas pedidas,
+  traz o `quantil` que gerou cada `eps`).
+- Figuras: `figura4_selecao_k`, `figura_dendrograma`, `figura_k_distancia`.
+
+**Alterado**
+
+- `src/config.py`: seção "Clusterização" com `RANDOM_STATE`, `N_INIT`,
+  `K_MIN`, `K_MAX`, `TAMANHO_MINIMO_GRUPO`, `VARIANCIA_PCA_DBSCAN` e
+  `QUANTIS_EPS_DBSCAN`.
+
+**Números**
+
+- Silhueta máxima: 0,136 (K-means, k = 2); Ward: 0,114 (k = 2). Todas
+  abaixo de 0,25, coerente com a nuvem contínua do notebook 03.
+- Calinski–Harabasz máximo em k = 2 nos dois (119,0 e 100,5);
+  Davies–Bouldin mínimo em k = 4 no K-means (2,169) e k = 10 no Ward
+  (2,236, com um grupo de 4 municípios).
+- Menor grupo abaixo de 5% a partir de k = 7 no K-means e k = 8 no Ward.
+- DBSCAN: 1 grupo em todas as 14 configurações (`min_pts` 13 e 24); ruído
+  entre 0,3% e 23,8%.
+
 ### [02/10/2026] T1 — pré-processamento em `src/preprocessamento.py`
 
 **Adicionado**

@@ -105,6 +105,15 @@ POPULACAO_MINIMA = 5_000
 # capita fica ao lado da renda mediana.
 LIMIAR_REDUNDANCIA = 0.85
 
+# --- Clusterização ------------------------------------------------------
+RANDOM_STATE = 42              # semente de tudo que sorteia, para repetir o resultado
+N_INIT = 50                    # quantas vezes o K-means recomeça com centros novos
+K_MIN, K_MAX = 2, 10           # faixa de número de grupos testada
+TAMANHO_MINIMO_GRUPO = 0.05    # grupo com menos de 5% dos municípios não vira perfil
+VARIANCIA_PCA_DBSCAN = 0.80    # o DBSCAN roda sobre as componentes que somam 80%
+# Quantis da curva de k-distância testados como raio (eps) do DBSCAN.
+QUANTIS_EPS_DBSCAN = [0.50, 0.60, 0.70, 0.80, 0.90, 0.95, 0.99]
+
 # --- IEGM ---------------------------------------------------------------
 # As notas do IEGM vêm como letra. Esta é a conversão para número.
 ESCALA_ORDINAL_IEGM = {"C": 1, "C+": 2, "B": 3, "B+": 4, "A": 5}

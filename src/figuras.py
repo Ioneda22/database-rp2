@@ -229,3 +229,81 @@ def plot_pc1_pc2(escores: np.ndarray, cor: pd.Series, rotulo_cor: str,
     ax.set_title(f"Os {len(escores)} municípios nas duas primeiras componentes")
     fig.tight_layout()
     return fig
+
+
+# ---------------------------------------------------------------------------
+# Fase 4 - clusterização
+# ---------------------------------------------------------------------------
+
+def plot_selecao_k(metricas: pd.DataFrame) -> Figure:
+    """
+    Mostra as quatro medidas de qualidade do K-means e do Ward para cada k.
+    Serve para comparar os dois algoritmos e ver quais k se destacam.
+    """
+    paineis = [
+        ("soma_quadrados", "(a) soma dos quadrados interna\n(cotovelo; menor é melhor)"),
+        ("silhueta", "(b) silhueta\n(maior é melhor)"),
+        ("calinski_harabasz", "(c) Calinski–Harabasz\n(maior é melhor)"),
+        ("davies_bouldin", "(d) Davies–Bouldin\n(menor é melhor)"),
+    ]
+    # Marcador e tipo de linha diferentes para ler em preto e branco.
+    estilos = {"kmeans": dict(color="C0", marker="o", ls="-", label="K-means"),
+               "ward": dict(color="C1", marker="s", ls="--", label="Ward")}
+
+    fig, axes = plt.subplots(2, 2, figsize=(7, 5), sharex=True)
+    for ax, (coluna, titulo) in zip(axes.ravel(), paineis):
+        for algoritmo, estilo in estilos.items():
+            m = metricas[metricas["algoritmo"] == algoritmo]
+            ax.plot(m["k"], m[coluna], ms=4, **estilo)
+        ax.set_title(titulo, fontsize=9)
+        ax.set_xticks(sorted(metricas["k"].unique()))
+    for ax in axes[1]:
+        ax.set_xlabel("número de grupos (k)")
+    axes[0, 1].legend()
+    fig.tight_layout()
+    return fig
+
+
+def plot_k_distancia(distancias: dict[int, np.ndarray],
+                     eps_testados: dict[int, list[float]]) -> Figure:
+    """
+    Mostra a distância de cada município ao seu min_pts-ésimo vizinho, em
+    ordem, com os raios (eps) testados no DBSCAN. Serve para ver se a curva
+    tem um "joelho": sem joelho, não há uma separação natural entre regiões
+    densas e ruído.
+    """
+    fig, axes = plt.subplots(1, len(distancias), figsize=(7, 3), sharey=True,
+                             squeeze=False)
+    for ax, (min_pts, curva) in zip(axes[0], distancias.items()):
+        ax.plot(np.arange(1, len(curva) + 1), curva, color="C0")
+        for eps in eps_testados[min_pts]:
+            ax.axhline(eps, color="gray", ls=":", lw=0.8)
+        ax.set_title(f"min_pts = {min_pts}")
+        ax.set_xlabel("municípios, em ordem")
+    axes[0, 0].set_ylabel("distância ao min_pts-ésimo vizinho")
+    fig.suptitle("Curva de k-distância (pontilhado: eps testados)", y=1.0)
+    fig.tight_layout()
+    return fig
+
+
+def plot_dendrograma(W) -> Figure:
+    """
+    Mostra a árvore do Ward: cada junção de dois grupos, na altura do custo
+    da fusão. Serve para ver em que pontos cortar a árvore separa grupos bem
+    distintos (saltos grandes de altura) e onde só divide uma nuvem contínua.
+    """
+    from scipy.cluster.hierarchy import dendrogram, linkage
+
+    arvore = linkage(np.asarray(W), method="ward")
+    fig, ax = plt.subplots(figsize=(7, 3.6))
+    # truncate_mode="lastp" mostra só as 30 últimas junções; o número entre
+    # parênteses embaixo é quantos municípios cada ramo tem.
+    dendrogram(arvore, truncate_mode="lastp", p=30, ax=ax,
+               color_threshold=0, above_threshold_color="C0",
+               leaf_font_size=7)
+    ax.set_ylabel("custo da fusão")
+    ax.set_xlabel("ramos (entre parênteses: número de municípios)")
+    ax.set_title("Dendrograma do Ward (últimas 30 junções)")
+    ax.grid(axis="x", visible=False)
+    fig.tight_layout()
+    return fig
