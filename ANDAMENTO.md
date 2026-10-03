@@ -279,6 +279,27 @@ método | validação | integra gestão pública?`); (3) buscar 2 trabalhos novo
 
 ## 6. Changelog
 
+### [02/10/2026] T1 — pré-processamento em `src/preprocessamento.py`
+
+**Adicionado**
+
+- `src/preprocessamento.py`, com o cálculo das células 3, 5 e 7 do notebook
+  03 em forma de função, para os testes de estabilidade (T3) e de
+  sensibilidade (T5) refazerem a matriz sem copiar código:
+  `carregar_features` (22 features ordenadas por bloco e nome),
+  `taxas_da_janela` (taxas criminais refeitas para qualquer lista de anos,
+  reaproveitando `agregar_janela` do `merge_bases.py`) e `montar_matriz`
+  (devolve `Z`, `W` e o peso `1/√n`, calculado a partir da lista de features
+  recebida).
+- Notebook 03, seção 7: conferência com dois `assert` de que as funções
+  reproduzem a `W` do notebook e as 9 taxas criminais da `base_final.csv`.
+
+**Números**
+
+- Os dois `assert` passam: `W` igual (644 × 22) e 9 taxas criminais iguais
+  nos 644 municípios. `matriz_modelagem.csv` e as figuras do notebook 03 não
+  mudaram.
+
 ### [11/09/2026] Relatório da base — seleção das taxas e transformações
 
 **Corrigido**
