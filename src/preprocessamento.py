@@ -31,16 +31,21 @@ def carregar_features(dic: pd.DataFrame) -> tuple[list[str], pd.Series]:
     return features, bloco_de
 
 
+def exposicao_da_janela(cobertura: pd.DataFrame, anos: list[int]) -> float:
+    """Recebe a cobertura da SSP e uma lista de anos e devolve a exposição:
+    quantos anos completos foram observados (soma de meses / 12)."""
+    # É a mesma conta do definir_janela() do merge_bases.py, mas recebendo os
+    # anos como parâmetro, porque aquela função sempre lê a janela do config.
+    meses = cobertura.set_index(cobertura["ano"].astype(int))["n_meses"]
+    return sum(meses[a] / 12.0 for a in anos)
+
+
 def taxas_da_janela(base: pd.DataFrame, painel: pd.DataFrame,
                     cobertura: pd.DataFrame, anos: list[int]) -> pd.DataFrame:
     """Devolve uma cópia de `base` com as taxas criminais (`taxa_<grupo>`)
     refeitas só com os `anos` pedidos. Usada nos testes de estabilidade com
     subjanelas; as outras colunas ficam como estão."""
-    # Exposição = quantos anos completos foram observados. É a mesma conta do
-    # definir_janela() do merge_bases.py, mas recebendo os anos como
-    # parâmetro, porque aquela função sempre lê a janela do config.py.
-    meses = cobertura.set_index(cobertura["ano"].astype(int))["n_meses"]
-    exposicao = sum(meses[a] / 12.0 for a in anos)
+    exposicao = exposicao_da_janela(cobertura, anos)
 
     contagens = agregar_janela(painel, anos)
     saida = base.copy()

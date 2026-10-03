@@ -114,6 +114,17 @@ VARIANCIA_PCA_DBSCAN = 0.80    # o DBSCAN roda sobre as componentes que somam 80
 # Quantis da curva de k-distância testados como raio (eps) do DBSCAN.
 QUANTIS_EPS_DBSCAN = [0.50, 0.60, 0.70, 0.80, 0.90, 0.95, 0.99]
 
+# --- Estabilidade e escolha (regra de decisão do notebook 05) ------------
+# Preenchidas pelo grupo depois do notebook 05 (passo 5 da regra de decisão).
+ALGORITMO_ESCOLHIDO = None   # "kmeans" ou "ward"
+K_ESCOLHIDO = None
+SUBJANELAS = [[2023, 2024], [2024, 2025]]
+RUIDO_MAXIMO_DBSCAN = 0.20   # passo 1: o DBSCAN só entra com menos de 20% de ruído
+N_MELHORES_QUALIDADE = 3     # passo 3: ficam os k entre os 3 melhores
+TOLERANCIA_ARI = 0.05        # diferença de ARI abaixo disso conta como empate
+K_MIN_PERFIS = 3             # passo 4b: perfis precisam de pelo menos 3 grupos
+N_SEMENTES = 20              # quantos K-means com semente diferente são comparados
+
 # --- IEGM ---------------------------------------------------------------
 # As notas do IEGM vêm como letra. Esta é a conversão para número.
 ESCALA_ORDINAL_IEGM = {"C": 1, "C+": 2, "B": 3, "B+": 4, "A": 5}

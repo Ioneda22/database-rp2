@@ -11,11 +11,12 @@ import numpy as np
 import pandas as pd
 from sklearn.cluster import DBSCAN, AgglomerativeClustering, KMeans
 from sklearn.decomposition import PCA
-from sklearn.metrics import (calinski_harabasz_score, davies_bouldin_score,
-                             silhouette_score)
+from sklearn.metrics import (adjusted_rand_score, calinski_harabasz_score,
+                             davies_bouldin_score, silhouette_score)
 from sklearn.neighbors import NearestNeighbors
 
-from config import K_MAX, K_MIN, N_INIT, RANDOM_STATE
+from config import K_MAX, K_MIN, N_INIT, N_SEMENTES, RANDOM_STATE
+from preprocessamento import montar_matriz, taxas_da_janela
 
 ALGORITMOS_K = ["kmeans", "ward"]
 
@@ -129,3 +130,98 @@ def grade_dbscan(X, min_pts_lista: list[int], quantis: list[float]
                 "silhueta": silhueta,
             })
     return pd.DataFrame(linhas)
+
+
+# ---------------------------------------------------------------------------
+# Estabilidade (notebook 05)
+# ---------------------------------------------------------------------------
+# Todas as funções abaixo comparam duas partições pelo ARI (índice de Rand
+# ajustado). O ARI não depende do número que cada grupo recebe: o "grupo 0"
+# de uma partição pode ser o "grupo 2" da outra. Ele só olha quem está junto
+# com quem. Vale 1 quando as duas partições são iguais e fica perto de 0
+# quando elas concordam tanto quanto um sorteio.
+
+def ari_sementes(W, k: int, n: int = N_SEMENTES) -> tuple[float, float]:
+    """Compara o K-means de referência (melhor de N_INIT sorteios) com `n`
+    K-means de um sorteio só, cada um com uma semente diferente, e devolve a
+    média e o mínimo do ARI. Mede o quanto o resultado depende do sorteio."""
+    # Só faz sentido para o K-means: o Ward não sorteia nada e sempre dá o
+    # mesmo resultado com os mesmos dados.
+    X = np.asarray(W)
+    referencia = agrupar(X, "kmeans", k)
+    aris = [adjusted_rand_score(
+                referencia,
+                KMeans(n_clusters=k, n_init=1, random_state=s).fit_predict(X))
+            for s in range(n)]
+    return float(np.mean(aris)), float(np.min(aris))
+
+
+def matriz_subjanela(base_mod: pd.DataFrame, painel: pd.DataFrame,
+                     cobertura: pd.DataFrame, features: list[str],
+                     bloco_de: pd.Series, anos: list[int]) -> pd.DataFrame:
+    """Refaz a matriz ponderada W com as taxas criminais calculadas só com
+    os `anos` pedidos. Montada uma vez por subjanela e reaproveitada para
+    todos os candidatos."""
+    _, W_sub, _ = montar_matriz(
+        taxas_da_janela(base_mod, painel, cobertura, anos), features, bloco_de)
+    return W_sub
+
+
+def ari_subjanela(W_sub: pd.DataFrame, algoritmo: str, k: int,
+                  rotulos_ref: np.ndarray) -> float:
+    """Agrupa a matriz de uma subjanela (vinda de `matriz_subjanela`) e
+    devolve o ARI contra os rótulos da janela completa."""
+    # Os municípios estão na mesma ordem nas duas matrizes, então dá para
+    # comparar os rótulos posição a posição.
+    return float(adjusted_rand_score(rotulos_ref, agrupar(W_sub, algoritmo, k)))
+
+
+def ari_sem_pequenos(base_mod: pd.DataFrame, features: list[str],
+                     bloco_de: pd.Series, algoritmo: str, k: int,
+                     rotulos_ref: np.ndarray) -> float:
+    """Tira os municípios com menos de 5.000 habitantes, refaz a matriz só
+    com os que sobraram, agrupa e devolve o ARI contra a partição completa
+    restrita a esses mesmos municípios."""
+    ficam = ~base_mod["flag_pop_pequena"].to_numpy()
+    # A padronização é refeita só com quem ficou, como se os municípios
+    # pequenos nunca tivessem existido.
+    _, W_grandes, _ = montar_matriz(base_mod[ficam], features, bloco_de)
+    return float(adjusted_rand_score(rotulos_ref[ficam],
+                                     agrupar(W_grandes, algoritmo, k)))
+
+
+def marcar_qualidade(tabela: pd.DataFrame, n: int) -> pd.Series:
+    """Passo 3 da regra: recebe as partições que passaram no filtro de
+    tamanho e devolve verdadeiro/falso para cada uma, marcando os k que
+    estão entre os `n` melhores em silhueta e em Calinski-Harabasz dentro do
+    seu algoritmo (ou só em silhueta, se nenhum k cumprir as duas)."""
+    marca = pd.Series(False, index=tabela.index)
+    for _, t in tabela.groupby("algoritmo"):
+        # nlargest(n, coluna) pega as n linhas com os maiores valores.
+        top_silhueta = set(t.nlargest(n, "silhueta").index)
+        top_calinski = set(t.nlargest(n, "calinski_harabasz").index)
+        ficam = (top_silhueta & top_calinski) or top_silhueta
+        marca[list(ficam)] = True
+    return marca
+
+
+def renumerar_por_socioeconomico(rotulos: np.ndarray, Z: pd.DataFrame,
+                                 colunas_socio: list[str]) -> np.ndarray:
+    """Renumera os grupos de 1 a k em ordem crescente da média das variáveis
+    socioeconômicas padronizadas: o perfil 1 é o de menor condição
+    socioeconômica."""
+    # A numeração que o scikit-learn dá aos grupos é arbitrária e muda de uma
+    # execução para outra. Ordenando por um critério fixo, "perfil 1" quer
+    # dizer sempre a mesma coisa.
+    media_socio = Z[colunas_socio].mean(axis=1).groupby(rotulos).mean()
+    # rank() dá a posição de cada grupo nessa ordem (1 = menor média).
+    nova_ordem = media_socio.rank(method="first").astype(int)
+    return nova_ordem.loc[rotulos].to_numpy()
+
+
+def distancia_ao_centro(W, rotulos: np.ndarray) -> np.ndarray:
+    """Distância de cada município até a média do seu grupo, na matriz W.
+    Serve para achar os municípios mais típicos de cada perfil."""
+    X = np.asarray(W)
+    centros = pd.DataFrame(X).groupby(rotulos).mean()
+    return np.linalg.norm(X - centros.loc[rotulos].to_numpy(), axis=1)

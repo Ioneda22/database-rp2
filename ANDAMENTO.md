@@ -279,6 +279,43 @@ método | validação | integra gestão pública?`); (3) buscar 2 trabalhos novo
 
 ## 6. Changelog
 
+### [02/10/2026] T3 — notebook 05, estabilidade e regra de decisão
+
+**Adicionado**
+
+- `notebooks/05_estabilidade_escolha.ipynb`: os três testes de
+  estabilidade (subjanelas 2023–2024 e 2024–2025, sem os municípios
+  pequenos, sementes do K-means), a tabela de comparação e a regra de
+  decisão de 02/10 (passos 1 a 4b) aplicada passo a passo. Só sugere; a
+  seção 7 não salva nada enquanto a escolha estiver pendente.
+- `src/clusterizacao.py`: `ari_sementes`, `matriz_subjanela`,
+  `ari_subjanela`, `ari_sem_pequenos`, `marcar_qualidade` (passo 3),
+  `renumerar_por_socioeconomico` e `distancia_ao_centro`. A matriz de cada
+  subjanela é montada uma vez por `matriz_subjanela` e reaproveitada, por
+  isso `ari_subjanela` recebe a matriz pronta em vez dos dados brutos.
+- `data/processed/tabela_comparacao_algoritmos.csv` (18 partições + 1 linha
+  de resumo do DBSCAN, com a coluna `observacao`).
+
+**Alterado**
+
+- `src/config.py`: `ALGORITMO_ESCOLHIDO` e `K_ESCOLHIDO` (vazios),
+  `SUBJANELAS`, `RUIDO_MAXIMO_DBSCAN`, `N_MELHORES_QUALIDADE`,
+  `TOLERANCIA_ARI`, `K_MIN_PERFIS` e `N_SEMENTES`.
+- `src/preprocessamento.py`: a conta da exposição virou a função
+  `exposicao_da_janela`, usada no `assert` de 2,0 anos das subjanelas. O
+  resultado de `taxas_da_janela` não muda.
+
+**Números**
+
+- Sem os municípios pequenos ficam 495 municípios.
+- `ari_estabilidade`: K-means de 0,447 a 0,850; Ward de 0,311 a 0,477.
+- Regra: DBSCAN fora no passo 1; 11 partições passam no tamanho; 6 na
+  qualidade (k = 2, 3 e 4 nos dois algoritmos).
+- Divisão mais robusta (4b): K-means k = 2, `ari_estabilidade` 0,850.
+- Perfis (k ≥ 3): K-means k = 4 (0,761) e k = 3 (0,743) empatados
+  (diferença 0,018 < 0,05). Escolha pendente para a reunião de 07/10.
+- Sementes: ARI médio 0,929 em k = 4 e 0,451 em k = 3.
+
 ### [02/10/2026] T2 — notebook 04, três algoritmos
 
 **Adicionado**
