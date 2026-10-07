@@ -14,8 +14,10 @@ from sklearn.decomposition import PCA
 from sklearn.metrics import (adjusted_rand_score, calinski_harabasz_score,
                              davies_bouldin_score, silhouette_score)
 from sklearn.neighbors import NearestNeighbors
+from scipy.stats import kruskal
 
-from config import K_MAX, K_MIN, N_INIT, N_SEMENTES, RANDOM_STATE
+from config import (FAIXAS_EPSILON2, K_MAX, K_MIN, N_INIT, N_SEMENTES,
+                    RANDOM_STATE)
 from preprocessamento import montar_matriz, taxas_da_janela
 
 ALGORITMOS_K = ["kmeans", "ward"]
@@ -225,3 +227,30 @@ def distancia_ao_centro(W, rotulos: np.ndarray) -> np.ndarray:
     X = np.asarray(W)
     centros = pd.DataFrame(X).groupby(rotulos).mean()
     return np.linalg.norm(X - centros.loc[rotulos].to_numpy(), axis=1)
+
+
+# ---------------------------------------------------------------------------
+# Validação externa (notebook 07)
+# ---------------------------------------------------------------------------
+
+def kruskal_epsilon2(valores: pd.Series, perfil: pd.Series
+                     ) -> tuple[float, float, float]:
+    """Recebe uma variável e o perfil de cada município e devolve (H, p_valor,
+    epsilon2) do teste de Kruskal-Wallis. O epsilon² diz, de 0 a 1, quanto a
+    variável muda de um perfil para outro."""
+    # O teste recebe uma lista de valores por perfil. Ele compara as posições
+    # (o ranking) dos municípios, não os valores em si; por isso não importa
+    # se a variável está transformada ou não.
+    por_perfil = [v.to_numpy() for _, v in valores.groupby(perfil.to_numpy())]
+    H, p_valor = kruskal(*por_perfil)
+    epsilon2 = H / (len(valores) - 1)
+    return float(H), float(p_valor), float(epsilon2)
+
+
+def faixa_epsilon2(epsilon2: float) -> str:
+    """Devolve o nome da faixa do epsilon² (fraco, moderado...), segundo
+    FAIXAS_EPSILON2 do config."""
+    for limite, nome in FAIXAS_EPSILON2.items():
+        if epsilon2 < limite:
+            return nome
+    return "muito forte"

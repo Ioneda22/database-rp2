@@ -125,6 +125,12 @@ TOLERANCIA_ARI = 0.05        # diferença de ARI abaixo disso conta como empate
 K_MIN_PERFIS = 3             # passo 4b: perfis precisam de pelo menos 3 grupos
 N_SEMENTES = 20              # quantos K-means com semente diferente são comparados
 
+# --- Validação externa (notebook 07) ------------------------------------
+# Faixas para ler o tamanho de efeito epsilon² do Kruskal-Wallis: abaixo do
+# limite, recebe o nome. Acima de 0,64 é "muito forte".
+FAIXAS_EPSILON2 = {0.04: "fraco", 0.16: "moderado",
+                   0.36: "relativamente forte", 0.64: "forte"}
+
 # --- IEGM ---------------------------------------------------------------
 # As notas do IEGM vêm como letra. Esta é a conversão para número.
 ESCALA_ORDINAL_IEGM = {"C": 1, "C+": 2, "B": 3, "B+": 4, "A": 5}

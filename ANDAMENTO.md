@@ -279,6 +279,41 @@ método | validação | integra gestão pública?`); (3) buscar 2 trabalhos novo
 
 ## 6. Changelog
 
+### [07/10/2026] T4b parte 2 — validação externa e mapa dos perfis
+
+**Adicionado**
+
+- `notebooks/07_validacao_externa_mapa.ipynb`, seções 1 a 4: Kruskal–Wallis
+  e ε² da `prop_via_publica` (com boxplot), ε² das 22 features (descritivo),
+  Figura 6 e leitura do mapa, com `assert` conferindo o perfil de cada
+  município citado no texto.
+- `src/clusterizacao.py`: `kruskal_epsilon2` e `faixa_epsilon2`.
+- `src/figuras.py`: `plot_boxplot_perfis`.
+- `src/config.py`: `FAIXAS_EPSILON2` (fraco, moderado, relativamente forte,
+  forte e, acima de 0,64, muito forte).
+- `figuras/figura6_mapa_perfis.png`, `figuras/figura_via_publica_perfis.png`
+  e `data/processed/tabela_kruskal.csv` (23 linhas).
+- `notebooks/05_estabilidade_escolha.ipynb`, seção 7: tabela cruzada entre
+  o K-means com k = 3 e os perfis escolhidos e a justificativa da escolha de
+  k = 4 (passo 5 da regra).
+
+**Números**
+
+- `prop_via_publica`: H = 229,2, p = 2,0 × 10⁻⁴⁹, **ε² = 0,356**
+  (relativamente forte). Mediana de 33,1%, 30,0%, 41,3% e 48,4% nos perfis
+  1 a 4.
+- **Ressalva:** a `prop_via_publica` tem correlação de Spearman de 0,68 com
+  a taxa de roubo de outros e de 0,60 a 0,65 com furto de veículo, coleta de
+  lixo, roubo de veículo, alfabetização e urbanização. A validação é
+  parcialmente circular e isso precisa constar no artigo.
+- ε² das features: maiores em alfabetização (0,494) e urbanização (0,490);
+  sete com efeito forte, dos três blocos. Crimes contra a pessoa entre 0,030
+  e 0,090; planejamento do IEGM 0,035.
+- Mapa: perfil 1 no Vale do Ribeira, região de Itapeva e extremo leste;
+  perfil 2 no oeste e noroeste; perfil 3 na periferia da Grande São Paulo,
+  no litoral e em cidades médias do Vale do Paraíba; perfil 4 nos polos
+  regionais e no núcleo da Grande São Paulo.
+
 ### [07/10/2026] T4a — notebook 06, perfis
 
 **Adicionado**

@@ -346,6 +346,26 @@ def plot_perfis(medias: pd.DataFrame, bloco_de: pd.Series,
     return fig
 
 
+def plot_boxplot_perfis(valores: pd.Series, perfil: pd.Series, rotulo: str,
+                        rotulos_perfis: list[str]) -> Figure:
+    """
+    Mostra a distribuição de uma variável em cada perfil (uma caixa por
+    perfil). Serve para ver a diferença que o epsilon² do Kruskal-Wallis
+    resume em um número.
+    """
+    # Mesmos tons de azul do mapa, do perfil 1 (claro) ao último (escuro).
+    cores = plt.get_cmap("Blues")(np.linspace(0.2, 0.95, len(rotulos_perfis)))
+    fig, ax = plt.subplots(figsize=(6, 3.6))
+    sns.boxplot(x=perfil.to_numpy(), y=valores.to_numpy(), hue=perfil.to_numpy(),
+                palette=list(cores), legend=False, fliersize=2, ax=ax)
+    ax.set_xticks(range(len(rotulos_perfis)), rotulos_perfis)
+    ax.set_xlabel("")
+    ax.set_ylabel(rotulo)
+    ax.set_title(f"{rotulo[0].upper()}{rotulo[1:]} por perfil")
+    fig.tight_layout()
+    return fig
+
+
 def plot_mapa_categorias(gdf, coluna: str, rotulos: dict, titulo: str) -> Figure:
     """
     Mostra os municípios no mapa, pintados pela categoria de `coluna` (do
