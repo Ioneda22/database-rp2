@@ -15,6 +15,10 @@ python -m venv .venv && .venv\Scripts\activate    # Windows
 pip install -r requirements.txt
 ```
 
+Os notebooks 04 a 07 foram executados com Python 3.14 (versão 3.14.7, em
+`.venv`). O `geopandas`, usado no mapa do notebook 07, exige Python 3.9 ou
+mais recente.
+
 ## 2. Obtenção das bases
 
 Das três fontes, apenas o IBGE dispõe de acesso via API. As demais são
@@ -71,6 +75,11 @@ grava em `data/raw/ibge/` os arquivos `ibge_populacao.csv`,
 consultas são puladas nas execuções seguintes; para forçar uma atualização,
 basta apagar esses arquivos.
 
+A malha municipal usada no mapa do notebook 07 também é baixada
+automaticamente, na primeira execução, pela API de malhas do IBGE (com o
+shapefile municipal de 2022 como alternativa), e fica em
+`data/raw/ibge/malha_sp_municipios.geojson`.
+
 ## 3. Execução
 
 ### 3.1 Pipeline
@@ -94,7 +103,16 @@ notebooks/01_validacao_temporal.ipynb        Fase 1 — Figura 1
 notebooks/02_exploratoria.ipynb              Fase 2 — Tabela 2 e Figura 2
 notebooks/03_preprocessamento.ipynb          Fase 3 — Figura 3 e matriz_modelagem.csv
 notebooks/03b_apendice_escalonadores.ipynb   Apêndice — StandardScaler e RobustScaler
+notebooks/04_clusterizacao.ipynb             Fase 4 — Figura 4, K-means, Ward e DBSCAN
+notebooks/05_estabilidade_escolha.ipynb      Fase 4 — estabilidade, regra de decisão e perfis.csv
+notebooks/06_perfis.ipynb                    Fase 5 — Figura 5 e tabelas dos perfis
+notebooks/07_validacao_externa_mapa.ipynb    Fase 5 — validação externa e Figura 6 (mapa)
 ```
+
+Os notebooks 04 a 07 devem ser executados nessa ordem: o 05 lê as saídas do
+04, e o 06 e o 07 leem o `perfis.csv` gerado pelo 05. O `perfis.csv` só é
+gerado depois que `ALGORITMO_ESCOLHIDO` e `K_ESCOLHIDO` são preenchidos em
+`src/config.py`; a escolha registrada é K-means com k = 4.
 
 Todos operam sobre `data/processed/` e nenhum reprocessa microdado, razão
 pela qual devem ser executados após o `main.py`. As figuras são desenhadas
@@ -122,6 +140,13 @@ formato pronto para o Overleaf.
 | `relatorio_base.txt` | ausentes, zero-inflação, balanço de features e pesos por bloco | `main.py` |
 | `tabela2_descritivas.csv` | descritivas e percentual de zeros das 9 taxas (Tabela 2 do artigo) | notebook 02 |
 | `matriz_modelagem.csv` | 644 municípios × 22 features transformadas e ponderadas, mais 2 colunas de identificação | notebook 03 |
+| `metricas_clusterizacao.csv` | K-means e Ward, k de 2 a 10: soma dos quadrados, silhueta, Calinski–Harabasz, Davies–Bouldin e tamanho do menor e do maior grupo | notebook 04 |
+| `dbscan_grade.csv` | configurações testadas do DBSCAN (`min_pts`, `eps`), número de grupos e % de ruído | notebook 04 |
+| `tabela_comparacao_algoritmos.csv` | métricas e testes de estabilidade (ARI) das 18 partições, mais uma linha de resumo do DBSCAN | notebook 05 |
+| `perfis.csv` | perfil de cada um dos 644 municípios, distância ao centro do perfil e divisão em dois grupos (`divisao_k2`) | notebook 05 |
+| `tabela_perfis.csv` | medianas de cada perfil em unidades originais, mais a linha do total | notebook 06 |
+| `tabela_exemplos_perfis.csv` | os 5 municípios mais típicos e os 3 mais populosos de cada perfil | notebook 06 |
+| `tabela_kruskal.csv` | Kruskal–Wallis e ε² da variável de validação externa e das 22 features | notebook 07 |
 
 Duas observações sobre a leitura desses arquivos. Primeiro, **o painel é
 mensal e a base é anual**: o `merge_bases.py` soma sobre o mês, e as
@@ -148,6 +173,12 @@ filtrada na modelagem.
 | `figura_orcamento_blocos.png` | contribuição de cada bloco na distância, com e sem ponderação | notebook 03 |
 | `figura3_variancia_pca.png` | **Figura 3** — variância explicada acumulada do PCA | notebook 03 |
 | `figura_pc1_pc2.png` | dispersão dos municípios nas duas primeiras componentes | notebook 03 |
+| `figura4_selecao_k.png` | **Figura 4** — medidas de qualidade do K-means e do Ward para k de 2 a 10 | notebook 04 |
+| `figura_dendrograma.png` | dendrograma do Ward (últimas 30 junções) | notebook 04 |
+| `figura_k_distancia.png` | curva de k-distância usada para escolher o raio do DBSCAN | notebook 04 |
+| `figura5_perfis.png` | **Figura 5** — média padronizada de cada feature por perfil | notebook 06 |
+| `figura_via_publica_perfis.png` | proporção de ocorrências em via pública por perfil | notebook 07 |
+| `figura6_mapa_perfis.png` | **Figura 6** — mapa dos perfis | notebook 07 |
 
 ## 5. Estrutura de diretórios
 
@@ -161,11 +192,14 @@ database-rp2/
 │   ├── parse_ssp.py           # microdados da SSP -> painel mensal (streaming)
 │   ├── parse_iegm.py          # .xls legado do IEGM -> conceitos + ordinais
 │   ├── merge_bases.py         # une tudo por codigo_ibge -> base final
+│   ├── preprocessamento.py    # log1p, padronização e peso por bloco, em forma de função
+│   ├── clusterizacao.py       # agrupamento, métricas, estabilidade (ARI) e Kruskal-Wallis
+│   ├── malha.py               # malha municipal do IBGE para os mapas
 │   ├── figuras.py             # uma função por figura do artigo
 │   └── estilo.py              # estilo do matplotlib + salvar()
-├── notebooks/                 # análise (Fases 1 a 3) + apêndice 03b
+├── notebooks/                 # análise (Fases 1 a 5) + apêndice 03b
 ├── figuras/                   # saída das figuras do artigo
 └── data/
-    ├── raw/{ssp,ieg-m,ibge}/
+    ├── raw/{ssp,ieg-m,ibge}/  # ibge/ guarda também a malha (malha_sp_municipios.geojson)
     └── processed/
 ```

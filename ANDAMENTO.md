@@ -1,34 +1,31 @@
 # Andamento — o que está pronto, o que falta e o que mudou
 
-**Atualizado em:** 10/09/2026 · **Entrega:** 23/09/2026 (13 dias)
+**Atualizado em:** 07/10/2026 · **Entrega:** 21/10/2026, 23:59 — relatório
+parcial + vídeo (14 dias)
 
 Este arquivo é o estado do projeto. O [README.md](README.md) explica como
 rodar. O [PLANEJAMENTO.md](PLANEJAMENTO.md) foi escrito para a entrega de
-16/09 com clusterização no escopo — **está desatualizado em prazo e escopo**;
-o que vale é o que está aqui.
+16/09 e **está desatualizado**; o que vale é o que está aqui.
 
 ---
 
-## 1. O escopo desta entrega mudou
+## 1. Escopo da entrega de 21/10
 
-A clusterização **saiu** desta entrega e vai para a próxima. Os *Resultados
-Parciais* e a *Discussão e Conclusão* passam a ser sobre a **análise
-exploratória e o pré-processamento**.
+Esta entrega responde às perguntas (ii) e (iii) do artigo; a (i) foi
+respondida na entrega de 23/09.
 
-Consequência prática: **a Fase 3 deixou de ser preparação e virou o clímax
-dos resultados.** O que seria uma etapa intermediária agora é a última peça
-técnica do relatório, e por isso foi tratada como resultado — com comparação
-de alternativas e figuras próprias, não como um passo administrativo.
+- **(ii) Qual algoritmo?** K-means, Ward e DBSCAN comparados por qualidade
+  (silhueta, Calinski–Harabasz, Davies–Bouldin) e por estabilidade (ARI entre
+  subjanelas, sem os municípios pequenos e entre sementes), com uma regra de
+  decisão definida antes dos testes. Escolha do grupo: **K-means com k = 4**.
+- **(iii) Que perfis?** Quatro perfis caracterizados por mapa de calor,
+  medianas, municípios típicos, validação externa (Kruskal–Wallis com ε²) e
+  mapa.
 
-| Seção | Máx. | Conteúdo nesta entrega |
-|---|---:|---|
-| Título e resumo | 1 p | título revisado; resumo com resultados parciais |
-| Introdução | 2 p | ⚠ ponto a melhorar |
-| Trabalhos correlatos | 3 p | ⚠ ponto a melhorar |
-| Método | 2 p | aquisição, integração, exploratória, pré-processamento |
-| Resultados parciais | 3 p | ⚠ ponto a melhorar — Fases 1, 2 e 3 |
-| Discussão e conclusão | 1 p | o que a estrutura dos dados sugere + próximos passos |
-| Referências | livre | — |
+No `artigo.tex` (pasta do Overleaf), o resumo, o *abstract*, o fim da
+Introdução, a seção 3.3 do Método, duas subseções novas dos Resultados
+(Comparação dos algoritmos e Perfis) e a Discussão inteira foram reescritos
+em 07/10 e estão **em vermelho**, para revisão do grupo.
 
 ---
 
@@ -40,15 +37,11 @@ de alternativas e figuras próprias, não como um passo administrativo.
 | 1 | Validar a janela temporal | ✅ concluída — janela **confirmada** |
 | 2 | Exploratória e seleção de variáveis | ✅ concluída — **sem poda** |
 | 3 | Pré-processamento | ✅ concluída — matriz exportada |
-| 6 | Escrita conceitual (Introdução + Correlatos) | ⬜ **não começou** |
-| 7 | Escrita de Método, Resultados e Discussão | ⬜ a fazer |
-| 8 | Fechamento | ⬜ a fazer |
-| 4 e 5 | Clusterização e perfis | ⏭ **próxima entrega** |
-
-**Toda a Trilha A desta entrega está pronta.** O que falta é exclusivamente
-texto — e o `artigo.tex` ainda não teve uma linha alterada: título antigo,
-seção `Cronograma` presente, Método inteiro no futuro. São ~9 páginas a
-escrever em 13 dias, sem nenhuma dependência de código.
+| 4 | Clusterização e escolha do modelo | ✅ concluída — **K-means, k = 4** (notebooks 04 e 05) |
+| 5 | Perfis, validação externa e mapa | ✅ concluída (notebooks 06 e 07) |
+| — | Sensibilidade a 3 variáveis (T5, opcional) | ⬜ não feita — está nos próximos passos do artigo |
+| 6 e 7 | Escrita do artigo | 🟨 texto novo em vermelho, **a revisar pelo grupo** |
+| 8 | Fechamento | ⬜ a fazer: nomes dos perfis, citações, páginas, vídeo |
 
 ---
 
@@ -71,47 +64,55 @@ pelas 7 dimensões e contaria duas vezes.)
 | Alfabetização, renda mediana, esgoto, lixo (SIDRA 9543, 10295, 6805, 6892) | Censo 2022 |
 
 `data/processed/matriz_modelagem.csv` — **644 × 22**, já transformada,
-padronizada e ponderada. É o insumo direto da clusterização da próxima
-entrega.
+padronizada e ponderada. É o insumo dos notebooks 04 a 07.
 
 ### 3.2 Código
 
 | Arquivo | O que faz |
 |---|---|
 | `main.py` | orquestra as 4 etapas de construção |
-| `src/config.py` | caminhos, janela, tabelas do SIDRA, agrupamento de naturezas |
+| `src/config.py` | caminhos, janela, tabelas do SIDRA, agrupamento de naturezas, parâmetros da clusterização e o modelo escolhido |
 | `src/ibge_sidra.py` | baixa população, PIB, urbanização e 4 indicadores do Censo 2022 da API do SIDRA |
 | `src/parse_ssp.py` | 4,8 M de linhas de microdado → painel mensal (streaming) |
 | `src/parse_iegm.py` | 3 exercícios do IEGM → média ordinal por município |
 | `src/merge_bases.py` | une tudo por `codigo_ibge` → base final + dicionário |
+| `src/preprocessamento.py` | `log1p`, padronização e peso por bloco em forma de função (usado nos testes de estabilidade) |
+| `src/clusterizacao.py` | agrupamento, métricas, ARI de estabilidade e Kruskal–Wallis com ε² |
+| `src/malha.py` | malha municipal do IBGE para os mapas |
 | `src/figuras.py` | uma função por figura do artigo; os notebooks só preparam o dado e chamam |
 | `src/estilo.py` | estilo pronto do matplotlib e `salvar()` |
 | `notebooks/01_validacao_temporal.ipynb` | Fase 1 |
 | `notebooks/02_exploratoria.ipynb` | Fase 2, com seção 0 de primeiro contato com a base |
-| `notebooks/03_preprocessamento.ipynb` | Fase 3, pipeline do `sklearn` (75 linhas de código) |
+| `notebooks/03_preprocessamento.ipynb` | Fase 3, pipeline do `sklearn` |
 | `notebooks/03b_apendice_escalonadores.ipynb` | apêndice: por que `StandardScaler` |
+| `notebooks/04_clusterizacao.ipynb` | Fase 4: K-means, Ward e DBSCAN (só mede) |
+| `notebooks/05_estabilidade_escolha.ipynb` | Fase 4: estabilidade, regra de decisão, justificativa e `perfis.csv` |
+| `notebooks/06_perfis.ipynb` | Fase 5: perfis, Figura 5 e tabelas |
+| `notebooks/07_validacao_externa_mapa.ipynb` | Fase 5: validação externa e Figura 6 |
+
+Ambiente: os notebooks 04 a 07 rodam com Python 3.14 em `.venv` (ver README).
 
 ### 3.3 Figuras e tabelas geradas
 
 | Saída | Arquivo |
 |---|---|
 | **Figura 1** — série mensal 2022–2025 | `figuras/figura1_serie_mensal.png` |
-| Figura 1b — série por natureza | `figuras/figura1b_serie_por_natureza.png` |
 | **Figura 2** — correlação de Spearman | `figuras/figura2_spearman.png` |
 | **Figura 3** — variância explicada do PCA | `figuras/figura3_variancia_pca.png` |
-| Orçamento de distância por bloco | `figuras/figura_orcamento_blocos.png` |
-| Distribuições antes/depois de `log1p` | `figuras/figura_distribuicoes_log1p.png` |
-| Municípios em PC1 × PC2 | `figuras/figura_pc1_pc2.png` |
-| EDA: população em escala log | `figuras/figura_eda_populacao.png` |
-| EDA: boxplot das taxas | `figuras/figura_eda_boxplot_taxas.png` |
-| **Tabela 2** — descritivas + zero-inflação | `data/processed/tabela2_descritivas.csv` |
-
-São 9 figuras para 3 páginas de resultados — **mais do que cabe**. Escolher
-quais entram é parte do trabalho de escrita (ver §4.2).
+| **Figura 4** — seleção de k (K-means e Ward) | `figuras/figura4_selecao_k.png` |
+| **Figura 5** — perfis em relação à média | `figuras/figura5_perfis.png` |
+| **Figura 6** — mapa dos perfis | `figuras/figura6_mapa_perfis.png` |
+| Apoio: série por natureza, EDA, `log1p`, orçamento por bloco, PC1 × PC2 | `figuras/figura1b_*`, `figura_eda_*`, `figura_distribuicoes_log1p`, `figura_orcamento_blocos`, `figura_pc1_pc2` |
+| Apoio: dendrograma, k-distância, via pública por perfil | `figuras/figura_dendrograma`, `figura_k_distancia`, `figura_via_publica_perfis` |
+| Descritivas das taxas | `data/processed/tabela2_descritivas.csv` |
+| Comparação dos algoritmos | `data/processed/tabela_comparacao_algoritmos.csv` |
+| Perfis: medianas e exemplos | `data/processed/tabela_perfis.csv`, `tabela_exemplos_perfis.csv` |
+| Kruskal–Wallis e ε² | `data/processed/tabela_kruskal.csv` |
 
 ### 3.4 Números verificados — prontos para o artigo
 
-Todos medidos, nenhum estimado.
+Todos medidos, nenhum estimado. Entre parênteses, de onde cada grupo de
+números foi copiado.
 
 **Volume e integridade**
 
@@ -131,7 +132,7 @@ Todos medidos, nenhum estimado.
   municípios (6,8%) sem veículo subtraído em 3 anos.
 - População de SP em 2024: 45.973.194.
 
-**Validação externa**
+**Conferência da base**
 
 - **CVLI estadual: 6,0 por 100 mil/ano**, compatível com a taxa publicada.
   Capital em 4,6 — abaixo da média estadual, como se espera.
@@ -141,114 +142,84 @@ Todos medidos, nenhum estimado.
 **Fase 1 — janela confirmada**
 
 - Sem degrau em jan/2023. Na virada 2022→2023, **5 naturezas sobem e 5
-  descem**; variação mediana 6,2% contra 5,6% nas viradas seguintes.
+  descem**; variação mediana 6,2% contra 5,8% nas viradas seguintes (saída do
+  notebook 01).
 - As únicas que destoam são `cvli` e `estupro_total` — as *menos* sensíveis ao
   sistema de registro, o oposto do que a hipótese de artefato previria.
 
 **Fase 2 — features**
 
-- Zero-inflação do CVLI: **20,3%**, abaixo dos ~23% projetados.
+- Zero-inflação do CVLI: **20,3%**.
 - Nenhum par com |ρ| > 0,85. Máximo **0,763** (`roubo_outros × roubo_veiculo`).
-  Entre os novos indicadores, urbanização × lixo coletado chega a 0,74 e
-  urbanização × esgoto a 0,67, abaixo do limiar. **As 22 features seguem
-  inteiras.**
-- `pib_percapita` × `renda_domiciliar_mediana`: ρ = 0,41. Medem coisas
-  diferentes; o PIB fica, com o caveat dos enclaves para a Discussão.
+  **As 22 features seguem inteiras.**
+- `pib_percapita` × `renda_domiciliar_mediana`: ρ = 0,41.
 - `log1p` mantido: a assimetria negativa que ele parece introduzir é
   zero-inflação, não excesso de correção. Sem os zeros, tudo cai para −0,5 a
-  +0,7. Em `taxa_estupro_total`, **7 municípios** produzem assimetria −2,3.
+  +0,7.
 
 **Fase 3 — pré-processamento**
 
-- **`StandardScaler` no lugar de `RobustScaler`** (desvio do plano, ver §5).
-  Só assim o peso `1/√n` entrega a paridade que promete: **33,3% para cada
-  bloco**, contra 34/36/30 com `RobustScaler`.
-- Com `RobustScaler`, `i_planejamento_ord` respondia sozinha pela segunda
-  componente (carga **0,93**) — IQR de 0,333 (70% dos municípios no mesmo
-  valor) fazia o escalonador multiplicá-la por três.
-- Sem peso, o orçamento de distância é 40,9 / 27,3 / 31,8.
-- **12 componentes para 80% da variância**, de 22. Não há estrutura de baixa
-  dimensão.
-- PC1 (24,6%) é um eixo de condição socioeconômica: alfabetização,
-  urbanização, coleta de lixo, renda e esgoto, todos com carga positiva.
-  PC2 (12,5%) opõe saúde e educação do IEGM às taxas de roubo. A nuvem
-  PC1×PC2 é um **gradiente contínuo**, sem grupos naturalmente separados.
-- O peso `1/√n` tem ancoragem: é a simplificação da ponderação por grupo da
-  Análise Fatorial Múltipla (Escofier e Pagès, 1994). Entrada BibTeX no
-  README.
+- `StandardScaler` no lugar de `RobustScaler`: só assim o peso `1/√n` entrega
+  **33,3% para cada bloco**. Sem peso, o orçamento é 40,9 / 27,3 / 31,8.
+- **12 componentes para 80% da variância**, de 22. PC1 (24,6%) é um eixo
+  socioeconômico; PC2 (12,5%) opõe saúde e educação do IEGM às taxas de
+  roubo. A nuvem PC1 × PC2 é um **gradiente contínuo**.
+
+**Fase 4 — clusterização e escolha** (`metricas_clusterizacao.csv`,
+`dbscan_grade.csv`, `tabela_comparacao_algoritmos.csv` e saídas dos notebooks
+04 e 05)
+
+- Silhueta máxima **0,136** (K-means, k = 2); nenhuma partição chega a 0,25.
+  Silhueta e Calinski–Harabasz caem com k nos dois algoritmos; o K-means
+  supera o Ward em ambas para todo k.
+- Menor grupo abaixo de 5% a partir de k = 7 no K-means e k = 8 no Ward.
+- **DBSCAN: 1 grupo nas 14 configurações** (`min_pts` 13 e 24), ruído de 0,3%
+  a 23,8%. Excluído no passo 1 da regra.
+- Sem os municípios pequenos ficam **495** municípios.
+- `ari_estabilidade`: K-means de 0,447 a 0,850; Ward de 0,311 a 0,477.
+- Divisão mais robusta: K-means k = 2 (**0,850**).
+- Perfis: K-means k = 4 (**0,761**) e k = 3 (0,743) empatados; o grupo
+  escolheu **k = 4**. Sementes: ARI médio **0,929** em k = 4 e 0,451 em
+  k = 3. Silhueta 0,101 (k = 4) e 0,129 (k = 3).
+- k = 4, ARI por teste: 0,891 (2023–2024), 0,912 (2024–2025), **0,480** (sem
+  os pequenos, o teste mais exigente).
+- k = 3 × k = 4: o grupo 3 do k = 3 recebe 119 municípios do perfil 3 e 159
+  do perfil 4; perfis 1 e 2 se mantêm (65 de 66, 214 de 217).
+
+**Fase 5 — perfis** (`perfis.csv`, `tabela_perfis.csv`, `tabela_kruskal.csv`
+e saídas dos notebooks 06 e 07)
+
+- Tamanhos dos perfis 1 a 4: **66, 217, 196 e 165**. Municípios com menos de
+  5.000 habitantes: 25,8%, 53,5%, 4,6% e 4,2%.
+- Roubo mediano (por 100 mil/ano): 26,0, 10,3, 46,2 e 51,4 (total 27,9).
+  Renda mediana: R$ 942, R$ 1.200, R$ 1.175 e R$ 1.258 (total R$ 1.200).
+- Perfil 4 − perfil 3 (desvios): de 1,05 a 1,32 em cinco dimensões do IEGM,
+  0,91 na renda e quase zero nas taxas de roubo e furto.
+- **Validação externa: ε² = 0,356** na `prop_via_publica` (H = 229,2;
+  p = 2,0 × 10⁻⁴⁹), relativamente forte. Medianas de 33,1%, 30,0%, 41,3% e
+  48,4%. **Ressalva:** ρ de 0,68 com a taxa de roubo e de 0,60 a 0,65 com
+  furto e roubo de veículo, lixo, alfabetização e urbanização.
+- ε² das features: alfabetização 0,494, urbanização 0,490, roubo 0,428;
+  CVLI 0,057, tentativa de homicídio 0,030, planejamento 0,035.
+- Malha: 645 polígonos; 644 municípios com perfil e a capital sem perfil.
 
 ---
 
-## 4. O que falta produzir
+## 4. O que falta
 
-**Só texto.** Nenhuma linha de código é necessária para esta entrega.
-
-### 4.1 Ajustes estruturais no `artigo.tex`
-
-- [ ] Aplicar o título revisado (com *"indicadores integrados de"*). O atual
-      usa `relacionando-os a`, que descreve duas etapas — o oposto do desenho
-      de etapa única.
-- [ ] **Remover a seção `Cronograma`.**
-- [ ] Renomear `Materiais e Métodos` → `Método`.
-- [ ] Criar `Resultados Parciais` e `Discussão e Conclusão`.
-- [ ] Atualizar resumo e *abstract*: hoje estão inteiramente no futuro, e
-      precisam mencionar que há resultados parciais **e** que a clusterização
-      é etapa seguinte.
-
-### 4.2 Resultados Parciais (3 p) — seção nova
-
-Há mais material do que espaço. Sugestão de corte, em ordem de valor:
-
-| Entra | Elemento | Origem |
-|---|---|---|
-| ✅ | Tabela 1 — composição da base (fontes, n, cobertura, ausentes) | Fase 0 |
-| ✅ | Figura 1 — série mensal e validação da janela | Fase 1 |
-| ✅ | Tabela 2 — descritivas das taxas + zero-inflação | Fase 2 |
-| ✅ | Figura 2 — correlação de Spearman | Fase 2 |
-| ✅ | Figura 3 — variância explicada do PCA | Fase 3 |
-| ⚠ | Orçamento por bloco — se sobrar espaço; senão vira texto | Fase 3 |
-| ❌ | Distribuições `log1p`, PC1×PC2, série por natureza, figuras de EDA | apoio |
-
-Os três achados que a seção precisa deixar claros:
-
-1. A janela foi **testada**, não escolhida por conveniência.
-2. Nenhuma feature foi podada — os blocos **não são redundantes**.
-3. São necessárias 12 das 22 componentes para 80% da variância — **a
-   integração das três fontes acrescenta informação**, e não repetição.
-
-### 4.3 Método (2 p) — reescrever no passado
-
-Incorporar o que hoje só existe no código e no README: janela e sua validação
-empírica; junção por `codigo_ibge`; município de **circunscrição**; taxa por
-100 mil habitantes-ano com população de 2024; CVLI; naturezas excluídas e por
-quê; exclusão da capital; `log1p`, `StandardScaler` e peso por bloco.
-
-### 4.4 Introdução (2 p) e Trabalhos Correlatos (3 p)
-
-Sem dependência de dados — **é o que está travando a entrega**.
-
-**Introdução:** dimensionar o problema com números (temos vários em §3.4);
-**citar a literatura de desorganização social** — a linha 48 do tex invoca
-essa literatura *sem nenhuma citação* (Shaw & McKay, Sampson); explicitar as
-perguntas de pesquisa.
-
-**Trabalhos Correlatos**, por custo-benefício: (1) promover `silva2025` e
-`soliani2024`, já citados mas nunca discutidos na §2 — dois parágrafos sem
-leitura nova; (2) **tabela comparativa** (`trabalho | recorte | fonte |
-método | validação | integra gestão pública?`); (3) buscar 2 trabalhos novos.
-
-### 4.5 Discussão e Conclusão (1 p) — seção nova
-
-- O que a estrutura dos dados já sugere: os três blocos são complementares
-  (Spearman e PCA, por caminhos independentes); a distribuição é um gradiente
-  contínuo, não grupos separados.
-- **Limitações declaradas de frente:** anos de referência heterogêneos;
-  capital fora; 149 municípios abaixo de 5.000 habitantes; `taxa_trafico`
-  medindo também intensidade de policiamento; `i_planejamento_ord` com 70% dos
-  municípios no mesmo valor.
-- **Próximos passos:** clusterização (K-means, hierárquico, DBSCAN) com
-  comparação por métricas internas; análise de estabilidade por ARI; mapas
-  coropléticos; encolhimento bayesiano das taxas.
+- [ ] **Revisar todo o texto em vermelho do artigo** e reescrever no estilo do
+      grupo. Quando terminar, trocar no preâmbulo `\textcolor{red}{#1}` por
+      `#1` e `\color{red}` por nada (ou apagar as marcações).
+- [ ] **Resolver os 4 `[CITAÇÃO?]`**: Davies–Bouldin; regra do `min_pts`
+      (d + 1 e 2d); ARI; faixas do ε² (0,04 / 0,16 / 0,36 / 0,64).
+- [ ] **Dar nome aos 4 perfis** e usar os nomes no texto e nas figuras.
+- [ ] **Conferir o teto de páginas** desta entrega: os Resultados ganharam
+      duas figuras, duas tabelas e o mapa.
+- [ ] Frase antiga ainda no futuro, na Análise exploratória: "o efeito dos
+      zeros será avaliado na análise de sensibilidade" — não foi feito.
+- [ ] Vídeo.
+- [ ] (Opcional) T5 — sensibilidade a `taxa_trafico`, `pib_percapita` e
+      `i_planejamento_ord`.
 
 ---
 
@@ -256,28 +227,47 @@ método | validação | integra gestão pública?`); (3) buscar 2 trabalhos novo
 
 | Item | Situação |
 |---|---|
-| `.bib` e template SBC | Resolvido — está no Overleaf |
-| **Introdução e Trabalhos Correlatos** | **Não começaram. 5 das ~9 páginas. Maior risco.** |
-| Kernel dos notebooks | 4 Pythons na máquina; o que tem as bibliotecas é `C:\Python314\python.exe`. A 1ª célula imprime `sys.executable` |
-| `StandardScaler` vs `RobustScaler` | Desvio do plano, com evidência no apêndice 03b. **Confirmem se concordam** — a decisão vale para a clusterização da próxima entrega |
-| `pib_percapita` | Proxy ruim de renda (enclaves: Paulínia, Ilhabela, Louveira, Gavião Peixoto, Queiroz). Fica como feature porque ρ com a renda mediana é 0,41; **caveat obrigatório na Discussão** |
-| `taxa_trafico` | Mede também intensidade de policiamento; caveat na Discussão |
-| `i_planejamento_ord` | 70% dos municípios no mesmo valor. Mantida, mas pede sensibilidade com e sem ela na próxima entrega |
-| `*_conceito` ≠ `*_ord` | Por construção: `_ord` é a média dos 3 exercícios, `_conceito` é a letra do mais recente. Campinas: `B` e `1,667` |
+| Validação externa parcialmente circular | `prop_via_publica` correlaciona 0,68 com o roubo. Declarado no notebook 07 e na Discussão; não trocar a variável depois de ver o resultado |
+| Municípios pequenos | Retirá-los é o teste de estabilidade mais exigente (ARI 0,480 em k = 4); declarado nas limitações |
+| `pib_percapita`, `taxa_trafico`, `i_planejamento_ord` | Caveats na Discussão; sensibilidade (T5) não feita, ficou como próximo passo |
+| Python | Em uma das máquinas do grupo, `C:\Python314` não existe; nela, usar `.venv` (Python 3.14.7). A 1ª célula de cada notebook imprime `sys.executable` |
+| `*_conceito` ≠ `*_ord` | Por construção: `_ord` é a média dos 3 exercícios, `_conceito` é a letra do mais recente |
 
 **Calendário sugerido**
 
 | Dias | O quê |
 |---|---|
-| 08–14/09 | Introdução e Trabalhos Correlatos (as 5 páginas travadas) |
-| 12–17/09 | Método reescrito no passado |
-| 15–20/09 | Resultados Parciais e Discussão |
-| 20–22/09 | Revisão cruzada, contagem de páginas, figuras em cinza |
-| 23/09 | Submissão — **não deixar para as 23h** |
+| 08–11/10 | Nomes dos perfis; revisão do texto em vermelho; citações |
+| 12–15/10 | Contagem de páginas e cortes; (opcional) T5 |
+| 16–19/10 | Roteiro e gravação do vídeo |
+| 20/10 | Revisão final e remoção das marcações em vermelho |
+| 21/10 | Submissão — **não deixar para as 23h** |
 
 ---
 
 ## 6. Changelog
+
+### [07/10/2026] T6 — README e ANDAMENTO
+
+**Alterado**
+
+- `README.md`: notebooks 04 a 07 (seção 3.2), saídas novas em
+  `data/processed/` e em `figuras/` (seções 4.1 e 4.2), `preprocessamento.py`,
+  `clusterizacao.py`, `malha.py` e a malha em `data/raw/ibge/` (seção 5), e
+  nota sobre o Python 3.14 em `.venv`.
+- `ANDAMENTO.md`: seções 1 a 5 reescritas para a entrega de 21/10, com os
+  números da clusterização e dos perfis copiados dos CSVs e das saídas dos
+  notebooks 04 a 07.
+
+**Corrigido**
+
+- Variação mediana das viradas seguintes à de 2022→2023: **5,8%** (saída do
+  notebook 01 e artigo), e não 5,6%.
+
+**Conferido**
+
+- `requirements.txt` cobre todos os imports dos notebooks e de `src/`; o
+  `numpy` não está listado, mas é instalado junto com o `pandas`.
 
 ### [07/10/2026] T4b parte 2 — validação externa e mapa dos perfis
 
