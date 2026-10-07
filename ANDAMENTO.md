@@ -279,6 +279,30 @@ método | validação | integra gestão pública?`); (3) buscar 2 trabalhos novo
 
 ## 6. Changelog
 
+### [07/10/2026] T4b parte 1 — malha municipal e mapa de teste
+
+**Adicionado**
+
+- `src/malha.py` com `carregar_malha_sp()`: baixa a malha dos municípios
+  paulistas da API de malhas do IBGE (código do município na propriedade
+  `codarea`, conferido na resposta real) e guarda em
+  `data/raw/ibge/malha_sp_municipios.geojson`, fora do Git. Nas execuções
+  seguintes lê do disco. Se a API falhar, usa o shapefile municipal de 2022
+  do geoftp do IBGE (coluna `CD_MUN`, também conferida).
+- `src/figuras.py`, seção "Fase 5 - perfis": `plot_mapa_categorias`, que
+  será a Figura 6. Tons de `Blues` em ordem (sem as pontas quase brancas) e
+  hachura para os municípios sem perfil (a capital).
+- `notebooks/07_validacao_externa_mapa.ipynb`: abertura e seção 0, com o
+  `assert` dos 645 códigos e o mapa de teste da urbanização em quartis (não
+  salvo). As seções 1 a 4 dependem do `perfis.csv`.
+
+**Números**
+
+- Malha: 645 polígonos; os 645 municípios da base encontrados.
+- Ambiente novo (`.venv`, Python 3.14.7, pandas 3.0.6, scikit-learn 1.9.1,
+  geopandas 1.2.0) reproduz os notebooks 04 e 05 sem mudar nenhum CSV ou
+  figura.
+
 ### [02/10/2026] T3 — notebook 05, estabilidade e regra de decisão
 
 **Adicionado**

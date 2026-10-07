@@ -307,3 +307,42 @@ def plot_dendrograma(W) -> Figure:
     ax.grid(axis="x", visible=False)
     fig.tight_layout()
     return fig
+
+
+# ---------------------------------------------------------------------------
+# Fase 5 - perfis
+# ---------------------------------------------------------------------------
+
+def plot_mapa_categorias(gdf, coluna: str, rotulos: dict, titulo: str) -> Figure:
+    """
+    Mostra os municípios no mapa, pintados pela categoria de `coluna` (do
+    primeiro item de `rotulos`, mais claro, ao último, mais escuro).
+    Serve para ver se os perfis têm uma geografia; com os perfis, é a Figura 6.
+    """
+    from matplotlib.patches import Patch
+
+    # Cortamos as pontas da escala Blues: o começo é quase branco e se
+    # confundiria com o fundo e com o cinza dos municípios sem categoria.
+    cores = plt.get_cmap("Blues")(np.linspace(0.2, 0.95, len(rotulos)))
+    fig, ax = plt.subplots(figsize=(7, 5.2))
+    legenda = []
+    for cor, (valor, rotulo) in zip(cores, rotulos.items()):
+        gdf[gdf[coluna] == valor].plot(ax=ax, color=cor, edgecolor="gray",
+                                       linewidth=0.15)
+        legenda.append(Patch(facecolor=cor, edgecolor="gray", label=rotulo))
+
+    # Quem ficou sem categoria (a capital, que não tem IEGM) leva hachura,
+    # para não ser confundido com o perfil mais claro quando impresso em cinza.
+    sem = gdf[gdf[coluna].isna()]
+    if len(sem):
+        sem.plot(ax=ax, color="whitesmoke", edgecolor="gray", hatch="//////",
+                 linewidth=0.15)
+        legenda.append(Patch(facecolor="whitesmoke", edgecolor="gray",
+                             hatch="//////", label="sem perfil (sem IEGM)"))
+
+    ax.set_axis_off()
+    ax.set_title(titulo)
+    # O canto de baixo à direita é mar, por isso a legenda fica ali.
+    ax.legend(handles=legenda, loc="lower right", fontsize=8, frameon=True)
+    fig.tight_layout()
+    return fig
