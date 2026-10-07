@@ -279,6 +279,34 @@ método | validação | integra gestão pública?`); (3) buscar 2 trabalhos novo
 
 ## 6. Changelog
 
+### [07/10/2026] T4a — notebook 06, perfis
+
+**Adicionado**
+
+- `notebooks/06_perfis.ipynb`: tamanho dos perfis e tabela cruzada com a
+  `divisao_k2`, Figura 5, medianas em unidades originais, municípios típicos
+  e mais populosos, e uma leitura por perfil (sem nome; `Nome: [a definir
+  pelo grupo]`).
+- `src/figuras.py`, seção "Fase 5 - perfis": `plot_perfis` (Figura 5).
+- `figuras/figura5_perfis.png`, `data/processed/tabela_perfis.csv` e
+  `data/processed/tabela_exemplos_perfis.csv`.
+
+**Alterado**
+
+- `src/config.py`: o grupo preencheu `ALGORITMO_ESCOLHIDO = "kmeans"` e
+  `K_ESCOLHIDO = 4`. O notebook 05 rodou de novo e gerou
+  `data/processed/perfis.csv`.
+
+**Números**
+
+- Perfis 1 a 4 (em ordem crescente de condição socioeconômica): 66, 217,
+  196 e 165 municípios.
+- População mediana: 8.444, 4.706, 22.575,5 e 53.157; municípios com menos
+  de 5.000 habitantes: 25,8%, 53,5%, 4,6% e 4,2%.
+- Divisão em dois grupos (`divisao_k2`): perfis 1 e 2 no grupo 1 (66 de 66
+  e 211 de 217), perfil 4 no grupo 2 (164 de 165) e perfil 3 dividido (64 e
+  132).
+
 ### [07/10/2026] T4b parte 1 — malha municipal e mapa de teste
 
 **Adicionado**

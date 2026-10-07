@@ -313,6 +313,39 @@ def plot_dendrograma(W) -> Figure:
 # Fase 5 - perfis
 # ---------------------------------------------------------------------------
 
+def plot_perfis(medias: pd.DataFrame, bloco_de: pd.Series,
+                ordem_blocos: list[str], rotulos_perfis: list[str]) -> Figure:
+    """
+    Mostra, para cada perfil (coluna), em que features (linhas) ele fica
+    acima ou abaixo da média dos 644 municípios. Serve para dar nome aos
+    perfis; é a Figura 5.
+    """
+    rotulos = [c.replace("taxa_", "").replace("_ord", "") for c in medias.index]
+    fig, ax = plt.subplots(figsize=(6, 8))
+    # vmin/vmax em ±1,5: médias além disso ficam na cor mais forte. Assim um
+    # perfil muito extremo em uma variável não deixa as outras células quase
+    # brancas. O número escrito na célula continua sendo o valor real.
+    # Arredondar um valor como -0,03 dá "-0.0"; somar 0.0 tira o sinal do zero.
+    texto = medias.round(1) + 0.0
+    sns.heatmap(medias, cmap="RdBu", vmin=-1.5, vmax=1.5, center=0,
+                annot=texto, fmt=".1f", annot_kws={"size": 8},
+                xticklabels=rotulos_perfis, yticklabels=rotulos,
+                cbar_kws={"shrink": 0.6,
+                          "label": "desvios em relação à média dos 644 municípios"},
+                ax=ax)
+
+    # Linhas entre os blocos (as features já vêm ordenadas por bloco).
+    corte = 0
+    for b in ordem_blocos[:-1]:
+        corte += sum(1 for c in medias.index if bloco_de[c] == b)
+        ax.axhline(corte, color="gray", lw=1)
+    ax.set_xlabel("")
+    ax.tick_params(axis="x", rotation=0)
+    ax.set_title("Média padronizada de cada feature por perfil")
+    fig.tight_layout()
+    return fig
+
+
 def plot_mapa_categorias(gdf, coluna: str, rotulos: dict, titulo: str) -> Figure:
     """
     Mostra os municípios no mapa, pintados pela categoria de `coluna` (do

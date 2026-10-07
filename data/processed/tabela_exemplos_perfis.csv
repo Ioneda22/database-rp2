@@ -1,0 +1,33 @@
+perfil,tipo,codigo_ibge,municipio,populacao,distancia_ao_centro
+1,típico,3508702,Caconde,17266,0.932
+1,típico,3524600,Jacupiranga,16254,1.006
+1,típico,3543006,Ribeirão Branco,18930,1.015
+1,típico,3535606,Paraibuna,17950,1.052
+1,típico,3552007,Silveiras,6313,1.065
+1,populoso,3519709,Ibiúna,77651,1.569
+1,populoso,3537800,Piedade,54237,1.525
+1,populoso,3552106,Socorro,41405,1.513
+2,típico,3552908,Taciba,6399,0.767
+2,típico,3552601,Tabapuã,11499,0.876
+2,típico,3532504,Neves Paulista,9921,0.887
+2,típico,3516903,General Salgado,10449,0.912
+2,típico,3538907,Pirajuí,22743,0.914
+2,populoso,3542206,Rancharia,29305,0.992
+2,populoso,3530102,Mirandópolis,28737,0.982
+2,populoso,3537909,Pilar do Sul,28417,1.794
+3,típico,3539509,Pitangueiras,34416,0.715
+3,típico,3509700,Campos do Jordão,47983,0.736
+3,típico,3554706,Torrinha,9484,0.738
+3,típico,3519600,Ibitinga,61908,0.759
+3,típico,3509403,Cajuru,24217,0.786
+3,populoso,3530607,Mogi das Cruzes,468120,0.958
+3,populoso,3529401,Mauá,429380,1.332
+3,populoso,3510609,Carapicuíba,398462,1.457
+4,típico,3545308,Salto de Pirapora,45138,0.72
+4,típico,3505906,Batatais,59873,0.773
+4,típico,3533908,Olímpia,56701,0.818
+4,típico,3524303,Jaboticabal,73467,0.869
+4,típico,3529302,Matão,80998,0.881
+4,populoso,3518800,Guarulhos,1345364,1.388
+4,populoso,3509502,Campinas,1185977,1.598
+4,populoso,3548708,São Bernardo do Campo,840499,1.421
