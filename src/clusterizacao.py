@@ -16,8 +16,8 @@ from sklearn.metrics import (adjusted_rand_score, calinski_harabasz_score,
 from sklearn.neighbors import NearestNeighbors
 from scipy.stats import kruskal
 
-from config import (FAIXAS_EPSILON2, K_MAX, K_MIN, N_INIT, N_SEMENTES,
-                    RANDOM_STATE)
+from config import (FAIXAS_ARI, FAIXAS_EPSILON2, K_MAX, K_MIN, N_INIT,
+                    N_SEMENTES, RANDOM_STATE)
 from preprocessamento import montar_matriz, taxas_da_janela
 
 ALGORITMOS_K = ["kmeans", "ward"]
@@ -254,3 +254,45 @@ def faixa_epsilon2(epsilon2: float) -> str:
         if epsilon2 < limite:
             return nome
     return "muito forte"
+
+
+# ---------------------------------------------------------------------------
+# Entrega final (notebooks 08 a 10)
+# ---------------------------------------------------------------------------
+
+def faixa_ari(ari: float) -> str:
+    """Devolve a leitura do ARI segundo FAIXAS_ARI do config, definidas
+    antes de rodar os notebooks 08 e 09."""
+    for limite, nome in FAIXAS_ARI.items():
+        if ari < limite:
+            return nome
+    return "os perfis se mantêm"
+
+
+def refazer_particao(df: pd.DataFrame, features: list[str],
+                     bloco_de: pd.Series, algoritmo: str, k: int
+                     ) -> tuple[np.ndarray, pd.DataFrame, pd.DataFrame]:
+    """Refaz a matriz com `features`, agrupa com o modelo pedido e renumera
+    os grupos pelo critério socioeconômico do notebook 05. Devolve
+    (perfil, Z, W). Usada nos testes da entrega final (sem uma variável, com
+    as taxas suavizadas)."""
+    Z, W, _ = montar_matriz(df, features, bloco_de)
+    # O critério usa as socioeconômicas que estiverem na lista: sem o PIB per
+    # capita, por exemplo, a ordem sai das outras cinco.
+    colunas_socio = [c for c in features if bloco_de[c] == "socioeconomico"]
+    perfil = renumerar_por_socioeconomico(agrupar(W, algoritmo, k), Z,
+                                          colunas_socio)
+    return perfil, Z, W
+
+
+def distancias_aos_centros(W_ref, rotulos: np.ndarray, W_novos
+                           ) -> pd.DataFrame:
+    """Calcula o centro (a média) de cada grupo na matriz `W_ref` e devolve a
+    distância de cada linha de `W_novos` a cada centro, com uma coluna por
+    grupo. Serve para dizer de qual perfil um município mais se aproxima."""
+    centros = pd.DataFrame(np.asarray(W_ref)).groupby(rotulos).mean()
+    X = np.asarray(W_novos)
+    # X[:, None, :] - centros[None] faz a diferença de cada município para
+    # cada centro de uma vez; a norma ao longo das colunas dá a distância.
+    dist = np.linalg.norm(X[:, None, :] - centros.to_numpy()[None], axis=2)
+    return pd.DataFrame(dist, columns=centros.index)

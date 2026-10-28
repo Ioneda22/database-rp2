@@ -131,6 +131,19 @@ N_SEMENTES = 20              # quantos K-means com semente diferente são compar
 FAIXAS_EPSILON2 = {0.04: "fraco", 0.16: "moderado",
                    0.36: "relativamente forte", 0.64: "forte"}
 
+# --- Entrega final (notebooks 08 a 10) ----------------------------------
+# Faixas para ler o ARI entre uma partição refeita e a do perfis.csv,
+# confirmadas pelo grupo antes de rodar. Abaixo do limite, recebe o nome;
+# de 0,80 para cima, "os perfis se mantêm".
+FAIXAS_ARI = {0.65: "os perfis dependem da mudança testada",
+              0.80: "os perfis mudam em parte"}
+# Notebook 08: as três variáveis com problema conhecido apontado na Discussão.
+VARIAVEIS_SENSIBILIDADE = ["taxa_trafico", "pib_percapita", "i_planejamento_ord"]
+# Notebook 09: nos municípios acima desse tamanho, a taxa suavizada tem que
+# ficar a menos de DIFERENCA_MAXIMA_GRANDES (5%) da taxa bruta.
+POPULACAO_GRANDE = 100_000
+DIFERENCA_MAXIMA_GRANDES = 0.05
+
 # --- IEGM ---------------------------------------------------------------
 # As notas do IEGM vêm como letra. Esta é a conversão para número.
 ESCALA_ORDINAL_IEGM = {"C": 1, "C+": 2, "B": 3, "B+": 4, "A": 5}

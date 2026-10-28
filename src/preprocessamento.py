@@ -89,3 +89,91 @@ def montar_matriz(df: pd.DataFrame, features: list[str], bloco_de: pd.Series
     peso = pd.Series({c: 1 / np.sqrt(n_bloco[bloco_de[c]]) for c in features})
     W = Z * peso
     return Z, W, peso
+
+
+def orcamento(M: pd.DataFrame, bloco_de: pd.Series) -> pd.Series:
+    """Recebe uma matriz (Z ou W) e devolve o % da variância total que cada
+    bloco tem. É a mesma conta do notebook 03, sem arredondar, para servir de
+    conferência do um terço por bloco."""
+    # ddof=0 usa a fórmula populacional, que é a mesma do StandardScaler.
+    var = M.var(ddof=0)
+    por_bloco = var.groupby(M.columns.map(bloco_de)).sum()
+    # reindex mantém a ordem dos blocos e tira os que não estão na matriz.
+    por_bloco = por_bloco.reindex([b for b in ORDEM_BLOCOS if b in por_bloco])
+    return por_bloco / var.sum() * 100
+
+
+def escala_de_referencia(df: pd.DataFrame, features: list[str],
+                         bloco_de: pd.Series) -> tuple[pd.Series, pd.Series]:
+    """Recebe os municípios de referência (os 644) e devolve a média e o
+    desvio de cada feature depois do log1p, que são os números que o
+    StandardScaler da montar_matriz usa. Serve para levar outro município
+    (a capital) para a mesma escala sem mexer na dos 644."""
+    X = _com_log(df[features].astype(float), bloco_de)
+    # ddof=0: o StandardScaler divide por n, e não por n - 1.
+    return X.mean(), X.std(ddof=0)
+
+
+def transformar_com_escala(df: pd.DataFrame, features: list[str],
+                           bloco_de: pd.Series, media: pd.Series,
+                           desvio: pd.Series) -> pd.DataFrame:
+    """Aplica o log1p e padroniza `df` com a média e o desvio recebidos (da
+    escala_de_referencia). Devolve os valores em desvios em relação à média
+    dos municípios de referência."""
+    X = _com_log(df[features].astype(float), bloco_de)
+    return (X - media[features]) / desvio[features]
+
+
+def _com_log(X: pd.DataFrame, bloco_de: pd.Series) -> pd.DataFrame:
+    """log1p nas mesmas colunas da montar_matriz (taxas criminais e R$)."""
+    X = X.copy()
+    log_cols = [c for c in X.columns
+                if bloco_de[c] == "criminalidade" or c in COLUNAS_MONETARIAS]
+    X[log_cols] = np.log1p(X[log_cols])
+    return X
+
+
+def estimador_bayesiano_global(y: np.ndarray, n: np.ndarray
+                               ) -> tuple[np.ndarray, np.ndarray]:
+    """Recebe as ocorrências `y` e as pessoas-ano `n` de cada município e
+    devolve (taxa suavizada por pessoa-ano, C). É o estimador bayesiano
+    empírico global de Marshall (1991), usado por Assunção et al. (1998)."""
+    y = np.asarray(y, dtype=float)
+    n = np.asarray(n, dtype=float)
+    r = y / n                                   # taxa bruta
+    m = y.sum() / n.sum()                       # taxa do conjunto todo
+    # s² estima o quanto as taxas "verdadeiras" variam entre municípios: a
+    # variação observada (ponderada pela população) menos a parte que é só
+    # acaso, que é maior quanto menor o município.
+    s2 = (n * (r - m) ** 2).sum() / n.sum() - m / n.mean()
+    # Se o acaso explicar toda a variação, a conta dá negativa; aí não há
+    # diferença real entre municípios e todos ficam com a taxa do conjunto.
+    s2 = max(s2, 0.0)
+    # C vai de 0 a 1 e diz quanto confiamos na taxa do próprio município:
+    # perto de 1 em município grande (a taxa quase não muda), perto de 0 em
+    # município pequeno (a taxa é puxada para a média).
+    C = s2 / (s2 + m / n)
+    return m + C * (r - m), C
+
+
+def suavizar_taxas(base: pd.DataFrame, painel: pd.DataFrame,
+                   cobertura: pd.DataFrame, anos: list[int]) -> pd.DataFrame:
+    """Devolve uma cópia de `base` com as taxas criminais (`taxa_<grupo>`)
+    trocadas pelas taxas suavizadas do estimador bayesiano empírico global
+    (Marshall, 1991; Assunção et al., 1998), e uma coluna `c_<grupo>` com o C
+    de cada município, que diz quanto da taxa bruta foi mantido."""
+    # A taxa do conjunto (m) sai dos municípios recebidos: com os 644 da
+    # modelagem, é a taxa do estado sem a capital.
+    exposicao = exposicao_da_janela(cobertura, anos)
+    contagens = agregar_janela(painel, anos)
+    saida = base.copy()
+    com_contagem = saida[["codigo_ibge"]].merge(contagens, on="codigo_ibge",
+                                                how="left")
+    pessoas_ano = saida["populacao"].to_numpy() * exposicao
+    for grupo in GRUPOS_NATUREZA:
+        # Mesmo fillna(0) da taxas_da_janela: sem ocorrência, a contagem é 0.
+        ocorrencias = com_contagem[grupo].fillna(0).to_numpy()
+        suavizada, C = estimador_bayesiano_global(ocorrencias, pessoas_ano)
+        saida[f"taxa_{grupo}"] = suavizada * TAXA_POR_HABITANTES
+        saida[f"c_{grupo}"] = C
+    return saida

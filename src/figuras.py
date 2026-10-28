@@ -399,3 +399,56 @@ def plot_mapa_categorias(gdf, coluna: str, rotulos: dict, titulo: str) -> Figure
     ax.legend(handles=legenda, loc="lower right", fontsize=8, frameon=True)
     fig.tight_layout()
     return fig
+
+
+# ---------------------------------------------------------------------------
+# Entrega final - taxas suavizadas e capital
+# ---------------------------------------------------------------------------
+
+def plot_taxas_suavizadas(bruta: pd.Series, suavizada: pd.Series,
+                          pequeno: pd.Series, rotulo: str) -> Figure:
+    """
+    Mostra a taxa bruta (eixo x) contra a taxa suavizada (eixo y) de cada
+    município, com os municípios pequenos destacados. Serve para ver que a
+    suavização puxa para a média só quem tem poucos habitantes: os demais
+    ficam perto da diagonal.
+    """
+    pequeno = pequeno.to_numpy()
+    fig, ax = plt.subplots(figsize=(6, 4.6))
+    # Marcadores diferentes, além da cor, para ler impresso em preto e branco.
+    ax.scatter(bruta[~pequeno], suavizada[~pequeno], s=14, color="C0",
+               marker="o", alpha=0.7, label="5.000 habitantes ou mais")
+    ax.scatter(bruta[pequeno], suavizada[pequeno], s=18, color="C1",
+               marker="^", alpha=0.7, label="menos de 5.000 habitantes")
+    limite = float(max(bruta.max(), suavizada.max())) * 1.05
+    ax.plot([0, limite], [0, limite], color="gray", ls="--", lw=0.8,
+            label="taxa suavizada = taxa bruta")
+    ax.set_xlim(0, limite)
+    ax.set_ylim(0, limite)
+    ax.set_xlabel(f"{rotulo}, bruta")
+    ax.set_ylabel(f"{rotulo}, suavizada")
+    ax.set_title(f"{rotulo[0].upper()}{rotulo[1:]}: bruta e suavizada")
+    ax.legend(loc="upper left", fontsize=8)
+    fig.tight_layout()
+    return fig
+
+
+def plot_mapa_com_destaque(gdf, coluna: str, rotulos: dict, titulo: str,
+                           destaque: str, rotulo_destaque: str) -> Figure:
+    """
+    Mesmo mapa de plot_mapa_categorias, com o contorno de um município
+    (`destaque`, código IBGE) reforçado. Serve para mostrar a capital com o
+    perfil de que ela mais se aproxima, sem confundi-la com os 644.
+    """
+    from matplotlib.lines import Line2D
+
+    fig = plot_mapa_categorias(gdf, coluna, rotulos, titulo)
+    ax = fig.axes[0]
+    gdf[gdf["codigo_ibge"] == destaque].plot(ax=ax, facecolor="none",
+                                             edgecolor="black", linewidth=1.5)
+    # Refazemos a legenda com os itens que já existiam mais o do destaque.
+    legenda = ax.get_legend()
+    alcas = list(legenda.legend_handles) + [Line2D([], [], color="black", lw=1.5)]
+    textos = [t.get_text() for t in legenda.get_texts()] + [rotulo_destaque]
+    ax.legend(alcas, textos, loc="lower right", fontsize=8, frameon=True)
+    return fig

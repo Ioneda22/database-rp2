@@ -1,0 +1,5 @@
+variavel_retirada,bloco,n_colunas_no_bloco,ari,leitura,municipios_que_mudaram
+taxa_trafico,criminalidade,8,0.9475542688392659,os perfis se mantêm,12
+pib_percapita,socioeconomico,5,0.8635943203556444,os perfis se mantêm,33
+i_planejamento_ord,gestao,6,0.9044339083097953,os perfis se mantêm,23
+as três,"criminalidade, socioeconomico, gestao","8, 5, 6",0.8489159594526918,os perfis se mantêm,37
