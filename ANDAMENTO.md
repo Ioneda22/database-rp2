@@ -1,7 +1,8 @@
 # Andamento — o que está pronto, o que falta e o que mudou
 
-**Atualizado em:** 07/10/2026 · **Entrega:** 21/10/2026, 23:59 — relatório
-parcial + vídeo (14 dias)
+**Atualizado em:** 28/10/2026 · **Entrega final:** novembro de 2026. Os
+testes da entrega final (T7) e os números para o artigo estão em
+[RESULTADOS_ENTREGA_FINAL.md](RESULTADOS_ENTREGA_FINAL.md).
 
 Este arquivo é o estado do projeto. O [README.md](README.md) explica como
 rodar. O [PLANEJAMENTO.md](PLANEJAMENTO.md) foi escrito para a entrega de
@@ -39,7 +40,9 @@ em 07/10 e estão **em vermelho**, para revisão do grupo.
 | 3 | Pré-processamento | ✅ concluída — matriz exportada |
 | 4 | Clusterização e escolha do modelo | ✅ concluída — **K-means, k = 4** (notebooks 04 e 05) |
 | 5 | Perfis, validação externa e mapa | ✅ concluída (notebooks 06 e 07) |
-| — | Sensibilidade a 3 variáveis (T5, opcional) | ⬜ não feita — está nos próximos passos do artigo |
+| — | Sensibilidade a 3 variáveis (T7a, antiga T5) | ✅ concluída (notebook 08) — perfis se mantêm |
+| — | Taxas suavizadas (T7b) | ✅ concluída (notebook 09) — perfis **mudam**; decisão do grupo |
+| — | Posição da capital (T7c) | ✅ concluída (notebook 10) — mais próxima do perfil 4 |
 | 6 e 7 | Escrita do artigo | 🟨 texto novo em vermelho, **a revisar pelo grupo** |
 | 8 | Fechamento | ⬜ a fazer: nomes dos perfis, citações, páginas, vídeo |
 
@@ -89,6 +92,9 @@ padronizada e ponderada. É o insumo dos notebooks 04 a 07.
 | `notebooks/05_estabilidade_escolha.ipynb` | Fase 4: estabilidade, regra de decisão, justificativa e `perfis.csv` |
 | `notebooks/06_perfis.ipynb` | Fase 5: perfis, Figura 5 e tabelas |
 | `notebooks/07_validacao_externa_mapa.ipynb` | Fase 5: validação externa e Figura 6 |
+| `notebooks/08_sensibilidade.ipynb` | Entrega final: retirada de `taxa_trafico`, `pib_percapita` e `i_planejamento_ord` |
+| `notebooks/09_taxas_suavizadas.ipynb` | Entrega final: taxas criminais suavizadas pelo estimador bayesiano empírico global |
+| `notebooks/10_capital.ipynb` | Entrega final: perfil de que a capital mais se aproxima |
 
 Ambiente: os notebooks 04 a 07 rodam com Python 3.14 em `.venv` (ver README).
 
@@ -108,6 +114,9 @@ Ambiente: os notebooks 04 a 07 rodam com Python 3.14 em `.venv` (ver README).
 | Comparação dos algoritmos | `data/processed/tabela_comparacao_algoritmos.csv` |
 | Perfis: medianas e exemplos | `data/processed/tabela_perfis.csv`, `tabela_exemplos_perfis.csv` |
 | Kruskal–Wallis e ε² | `data/processed/tabela_kruskal.csv` |
+| Sensibilidade a 3 variáveis | `data/processed/tabela_sensibilidade.csv` |
+| Taxas suavizadas | `data/processed/tabela_taxas_suavizadas.csv`, `perfis_suavizados.csv`, `figuras/figura_taxas_suavizadas` |
+| Capital | `data/processed/tabela_capital.csv`, `tabela_capital_variaveis.csv`, `figuras/figura_mapa_perfis_com_capital` |
 
 ### 3.4 Números verificados — prontos para o artigo
 
@@ -203,6 +212,38 @@ e saídas dos notebooks 06 e 07)
   CVLI 0,057, tentativa de homicídio 0,030, planejamento 0,035.
 - Malha: 645 polígonos; 644 municípios com perfil e a capital sem perfil.
 
+**Entrega final — sensibilidade** (`tabela_sensibilidade.csv`, notebook 08)
+
+- Faixas do ARI confirmadas pelo grupo em 28/10, antes de rodar: ≥ 0,80 os
+  perfis se mantêm; 0,65 a 0,80 mudam em parte; < 0,65 dependem da mudança.
+- ARI sem `taxa_trafico` **0,948** (12 municípios mudam), sem `pib_percapita`
+  **0,864** (33), sem `i_planejamento_ord` **0,904** (23), sem as três
+  **0,849** (37). Os quatro na faixa "os perfis se mantêm"; o um terço por
+  bloco se mantém em todas as matrizes.
+
+**Entrega final — taxas suavizadas** (`tabela_taxas_suavizadas.csv`,
+notebook 09)
+
+- Mediana de C nos 149 pequenos: de 0,151 (CVLI) a 0,953 (roubo de outros);
+  nos 495 demais, de 0,524 a 0,992.
+- Critério de 5% nos 79 municípios com mais de 100 mil habitantes **não
+  cumprido** em 5 das 9 naturezas (CVLI 18 municípios, tentativa 10, roubo de
+  veículo 6, estupro 1, tráfico 1); diferença mediana até 2,27%. Investigado:
+  não é erro de implementação.
+- ARI contra o `perfis.csv`: **0,551** nos 644 (os perfis dependem da
+  suavização), 0,713 nos 149 pequenos e 0,504 nos 495 demais; 113 municípios
+  mudam de perfil, 12 deles pequenos. O perfil 2 passa de 217 para 304.
+- ARI sem os pequenos: 0,480 → **0,822**. Silhueta: 0,101 → 0,115.
+
+**Entrega final — capital** (`tabela_capital.csv`, notebook 10)
+
+- Distâncias da capital aos perfis 1 a 4 (15 colunas, sem gestão): 3,030,
+  2,453, 1,590 e **1,304**. Mais próxima: perfil 4; segunda: perfil 3.
+- Taxa de acerto do método nos 644: **0,781** (503 de 644); 0,648 no perfil
+  3 e 0,709 no perfil 4.
+- Fora da faixa dos 644 só em `taxa_roubo_outros` (952,88 contra máximo de
+  751,84).
+
 ---
 
 ## 4. O que falta
@@ -218,8 +259,13 @@ e saídas dos notebooks 06 e 07)
 - [ ] Frase antiga ainda no futuro, na Análise exploratória: "o efeito dos
       zeros será avaliado na análise de sensibilidade" — não foi feito.
 - [ ] Vídeo.
-- [ ] (Opcional) T5 — sensibilidade a `taxa_trafico`, `pib_percapita` e
-      `i_planejamento_ord`.
+- [x] T5 — sensibilidade a `taxa_trafico`, `pib_percapita` e
+      `i_planejamento_ord` (feita como T7a, notebook 08).
+- [ ] **Decidir o que fazer com o resultado das taxas suavizadas** (T7b):
+      com elas, 113 municípios mudam de perfil (ARI 0,551).
+- [ ] Escolher os nomes dos perfis (sugestões no
+      `RESULTADOS_ENTREGA_FINAL.md`, seção 6).
+- [ ] Atualizar o artigo com o `RESULTADOS_ENTREGA_FINAL.md` (seção 8).
 
 ---
 
@@ -228,8 +274,8 @@ e saídas dos notebooks 06 e 07)
 | Item | Situação |
 |---|---|
 | Validação externa parcialmente circular | `prop_via_publica` correlaciona 0,68 com o roubo. Declarado no notebook 07 e na Discussão; não trocar a variável depois de ver o resultado |
-| Municípios pequenos | Retirá-los é o teste de estabilidade mais exigente (ARI 0,480 em k = 4); declarado nas limitações |
-| `pib_percapita`, `taxa_trafico`, `i_planejamento_ord` | Caveats na Discussão; sensibilidade (T5) não feita, ficou como próximo passo |
+| Municípios pequenos | Retirá-los é o teste de estabilidade mais exigente (ARI 0,480 em k = 4). Com taxas suavizadas, sobe para 0,822, mas a partição muda (ARI 0,551 contra a de referência) |
+| `pib_percapita`, `taxa_trafico`, `i_planejamento_ord` | Sensibilidade feita (T7a): ARI de 0,849 a 0,948, perfis se mantêm |
 | Python | Em uma das máquinas do grupo, `C:\Python314` não existe; nela, usar `.venv` (Python 3.14.7). A 1ª célula de cada notebook imprime `sys.executable` |
 | `*_conceito` ≠ `*_ord` | Por construção: `_ord` é a média dos 3 exercícios, `_conceito` é a letra do mais recente |
 
@@ -246,6 +292,95 @@ e saídas dos notebooks 06 e 07)
 ---
 
 ## 6. Changelog
+
+### [28/10/2026] T7d e T7e — nomes dos perfis, README e ANDAMENTO
+
+**Adicionado**
+
+- Três sugestões de nome para cada perfil, com os números que as apoiam, no
+  `RESULTADOS_ENTREGA_FINAL.md` (seção 6). Nenhum nome foi escolhido, e as
+  figuras e os notebooks não mudaram.
+
+**Alterado**
+
+- `README.md`: notebooks 08 a 10 (seção 3.2), saídas novas em
+  `data/processed/` e em `figuras/` (seções 4.1 e 4.2) e as funções novas de
+  `preprocessamento.py` e `clusterizacao.py` (seção 5).
+- `ANDAMENTO.md`: cabeçalho, seções 2 a 5 e números da entrega final na
+  seção 3.4.
+
+### [28/10/2026] T7c — notebook 10, posição da capital
+
+**Adicionado**
+
+- `notebooks/10_capital.ipynb`: a capital na escala dos 644 (`assert` de que
+  a escala é a da `montar_matriz`), distância aos centros dos 4 perfis nas 15
+  colunas sem gestão, teste de acerto da mesma regra nos 644, a capital em
+  cada variável com a marcação de extrapolação e o mapa de apoio.
+- `src/preprocessamento.py`: `escala_de_referencia` e
+  `transformar_com_escala`.
+- `src/clusterizacao.py`: `distancias_aos_centros`.
+- `src/figuras.py`: `plot_mapa_com_destaque` (a Figura 6 não muda).
+- `data/processed/tabela_capital.csv`, `tabela_capital_variaveis.csv` e
+  `figuras/figura_mapa_perfis_com_capital.png`.
+
+**Números**
+
+- Perfil mais próximo: **4** (distância 1,304); segundo: perfil 3 (1,590).
+  Distância mediana dos 644 ao centro mais próximo: 0,986; 23,4% deles ficam
+  mais longe do que a capital.
+- Taxa de acerto nos 644: **0,781** (0,970, 0,899, 0,648 e 0,709 nos perfis
+  1 a 4).
+- Capital fora da faixa dos 644 só no roubo de outros (952,88 contra máximo
+  de 751,84).
+
+### [28/10/2026] T7b — notebook 09, taxas suavizadas
+
+**Adicionado**
+
+- `notebooks/09_taxas_suavizadas.ipynb`: suavização das taxas criminais pelo
+  estimador bayesiano empírico global, conferências, mediana de C por
+  natureza, critério dos 5% nos municípios grandes (com a investigação da
+  falha), figura de apoio, partição suavizada, ARI e silhueta.
+- `src/preprocessamento.py`: `estimador_bayesiano_global` e
+  `suavizar_taxas`. Fórmulas conferidas na documentação do `EBest` (`spdep`,
+  R) e no código do `Empirical_Bayes` (`esda`, PySAL).
+- `src/figuras.py`: `plot_taxas_suavizadas`.
+- `src/config.py`: `POPULACAO_GRANDE` e `DIFERENCA_MAXIMA_GRANDES`.
+- `data/processed/tabela_taxas_suavizadas.csv`, `perfis_suavizados.csv` e
+  `figuras/figura_taxas_suavizadas.png`.
+
+**Números**
+
+- A taxa do conjunto (`m`) sai dos 644 municípios, sem a capital.
+- Critério dos 5% nos 79 municípios com mais de 100 mil habitantes: falha em
+  5 das 9 naturezas. O maior caso é o CVLI de Valinhos (1,523 → 2,146, C de
+  0,875). O critério não foi alterado; ver o relatório.
+- ARI 644 / 149 / 495: **0,551** / 0,713 / 0,504; 113 municípios mudam de
+  perfil (12 pequenos), sobretudo do perfil 3 (59) e do 4 (31) para o 2.
+- ARI sem os pequenos: 0,480 → **0,822**; silhueta: 0,101 → 0,115.
+
+### [28/10/2026] T7a — notebook 08, sensibilidade a três variáveis
+
+**Adicionado**
+
+- `notebooks/08_sensibilidade.ipynb`: retirada de `taxa_trafico`,
+  `pib_percapita` e `i_planejamento_ord`, separadamente e juntas, com
+  `assert` do um terço por bloco e as tabelas cruzadas.
+- `src/config.py`: `FAIXAS_ARI` (confirmadas pelo grupo antes de rodar) e
+  `VARIAVEIS_SENSIBILIDADE`.
+- `src/preprocessamento.py`: `orcamento` (a conta do notebook 03, sem
+  arredondar).
+- `src/clusterizacao.py`: `faixa_ari` e `refazer_particao`, que refaz a
+  matriz, agrupa e renumera; com as 22 features, reproduz o `perfis.csv`.
+- `tarefas/T7_entrega_final.md`: o plano da entrega final.
+- `data/processed/tabela_sensibilidade.csv`.
+
+**Números**
+
+- ARI: 0,948 (sem tráfico), 0,864 (sem PIB per capita), 0,904 (sem
+  planejamento) e 0,849 (sem as três); 12, 33, 23 e 37 municípios mudam de
+  perfil. Todos na faixa "os perfis se mantêm".
 
 ### [07/10/2026] T6 — README e ANDAMENTO
 

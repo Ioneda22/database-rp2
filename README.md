@@ -107,12 +107,17 @@ notebooks/04_clusterizacao.ipynb             Fase 4 — Figura 4, K-means, Ward 
 notebooks/05_estabilidade_escolha.ipynb      Fase 4 — estabilidade, regra de decisão e perfis.csv
 notebooks/06_perfis.ipynb                    Fase 5 — Figura 5 e tabelas dos perfis
 notebooks/07_validacao_externa_mapa.ipynb    Fase 5 — validação externa e Figura 6 (mapa)
+notebooks/08_sensibilidade.ipynb             Entrega final — retirada de 3 variáveis
+notebooks/09_taxas_suavizadas.ipynb          Entrega final — taxas criminais suavizadas (bayesiano empírico)
+notebooks/10_capital.ipynb                   Entrega final — perfil mais próximo da capital
 ```
 
 Os notebooks 04 a 07 devem ser executados nessa ordem: o 05 lê as saídas do
 04, e o 06 e o 07 leem o `perfis.csv` gerado pelo 05. O `perfis.csv` só é
 gerado depois que `ALGORITMO_ESCOLHIDO` e `K_ESCOLHIDO` são preenchidos em
-`src/config.py`; a escolha registrada é K-means com k = 4.
+`src/config.py`; a escolha registrada é K-means com k = 4. Os notebooks 08 a
+10 também leem o `perfis.csv`, comparam outras versões da partição com ele e
+não alteram nenhum arquivo dos notebooks anteriores.
 
 Todos operam sobre `data/processed/` e nenhum reprocessa microdado, razão
 pela qual devem ser executados após o `main.py`. As figuras são desenhadas
@@ -147,6 +152,11 @@ formato pronto para o Overleaf.
 | `tabela_perfis.csv` | medianas de cada perfil em unidades originais, mais a linha do total | notebook 06 |
 | `tabela_exemplos_perfis.csv` | os 5 municípios mais típicos e os 3 mais populosos de cada perfil | notebook 06 |
 | `tabela_kruskal.csv` | Kruskal–Wallis e ε² da variável de validação externa e das 22 features | notebook 07 |
+| `tabela_sensibilidade.csv` | ARI e municípios que mudaram de perfil sem `taxa_trafico`, `pib_percapita`, `i_planejamento_ord` e sem as três | notebook 08 |
+| `tabela_taxas_suavizadas.csv` | ARI (644, pequenos, demais e sem os pequenos) e silhueta, original × com taxas suavizadas | notebook 09 |
+| `perfis_suavizados.csv` | perfil original e perfil com taxas suavizadas de cada um dos 644 municípios | notebook 09 |
+| `tabela_capital.csv` | distâncias da capital aos 4 perfis, perfil mais próximo e taxa de acerto do método | notebook 10 |
+| `tabela_capital_variaveis.csv` | a capital e a média de cada perfil nas 15 variáveis, com a faixa dos 644 | notebook 10 |
 
 Duas observações sobre a leitura desses arquivos. Primeiro, **o painel é
 mensal e a base é anual**: o `merge_bases.py` soma sobre o mês, e as
@@ -179,6 +189,8 @@ filtrada na modelagem.
 | `figura5_perfis.png` | **Figura 5** — média padronizada de cada feature por perfil | notebook 06 |
 | `figura_via_publica_perfis.png` | proporção de ocorrências em via pública por perfil | notebook 07 |
 | `figura6_mapa_perfis.png` | **Figura 6** — mapa dos perfis | notebook 07 |
+| `figura_taxas_suavizadas.png` | CVLI bruto × suavizado, com os municípios pequenos destacados | notebook 09 |
+| `figura_mapa_perfis_com_capital.png` | mapa dos perfis com a capital no perfil mais próximo | notebook 10 |
 
 ## 5. Estrutura de diretórios
 
@@ -192,12 +204,14 @@ database-rp2/
 │   ├── parse_ssp.py           # microdados da SSP -> painel mensal (streaming)
 │   ├── parse_iegm.py          # .xls legado do IEGM -> conceitos + ordinais
 │   ├── merge_bases.py         # une tudo por codigo_ibge -> base final
-│   ├── preprocessamento.py    # log1p, padronização e peso por bloco, em forma de função
-│   ├── clusterizacao.py       # agrupamento, métricas, estabilidade (ARI) e Kruskal-Wallis
+│   ├── preprocessamento.py    # log1p, padronização e peso por bloco, em forma de função;
+│   │                          #   taxas suavizadas (suavizar_taxas) e escala dos 644 para a capital
+│   ├── clusterizacao.py       # agrupamento, métricas, estabilidade (ARI), Kruskal-Wallis,
+│   │                          #   leitura do ARI (faixa_ari) e distância aos centros dos perfis
 │   ├── malha.py               # malha municipal do IBGE para os mapas
 │   ├── figuras.py             # uma função por figura do artigo
 │   └── estilo.py              # estilo do matplotlib + salvar()
-├── notebooks/                 # análise (Fases 1 a 5) + apêndice 03b
+├── notebooks/                 # análise (Fases 1 a 5), apêndice 03b e entrega final (08 a 10)
 ├── figuras/                   # saída das figuras do artigo
 └── data/
     ├── raw/{ssp,ieg-m,ibge}/  # ibge/ guarda também a malha (malha_sp_municipios.geojson)
